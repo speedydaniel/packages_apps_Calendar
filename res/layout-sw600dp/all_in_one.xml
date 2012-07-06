@@ -60,6 +60,7 @@
     <LinearLayout
         android:id="@+id/mini_month_container"
         android:orientation="vertical"
+		android:background="#ff202020"
         android:layout_alignParentBottom="true"
         android:layout_alignParentLeft="true"
         android:visibility="gone"
@@ -86,6 +87,7 @@
 
     <LinearLayout
         android:orientation="vertical"
+		android:background="#ff202020"
         android:layout_above="@id/mini_month_container"
         android:layout_below="@id/date_group"
         android:layout_width="match_parent"

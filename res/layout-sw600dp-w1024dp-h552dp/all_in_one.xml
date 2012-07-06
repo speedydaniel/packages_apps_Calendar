@@ -66,6 +66,7 @@
 
      <LinearLayout
         android:orientation="horizontal"
+		android:background="#ff202020"
         android:layout_toLeftOf="@id/mini_month_container"
         android:layout_alignParentLeft="true"
         android:layout_below="@id/date_group"

@@ -30,7 +30,7 @@
         android:gravity="center"
         android:text="@string/loading"
         style="?android:attr/textAppearanceLarge"
-        android:background="#FFFFFFFF"/>
+        android:background="#000000"/>
 
     <ScrollView
         android:id="@+id/scroll_view"
@@ -48,7 +48,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:layout_gravity="center_horizontal|top"
-                android:background="#FFFFFFFF"/>
+                android:background="#000000"/>
 
             <LinearLayout
                 android:id="@+id/two_pane"
