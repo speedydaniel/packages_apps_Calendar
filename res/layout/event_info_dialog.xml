@@ -19,7 +19,7 @@
     android:id="@+id/event_info_scroll_view"
     android:orientation="vertical"
     android:layout_width="match_parent"
-    android:background="#fafafa"
+    android:background="#000000"
     android:layout_weight="1"
     android:layout_height="match_parent">
 
@@ -271,7 +271,7 @@
                 android:layout_marginBottom="-6dp"
                 android:gravity="center_vertical|left"
                 android:textSize="18sp"
-                android:textColor="#FF777777"
+                android:textColor="#FFdfdfdf"
                 android:minHeight="38dip"
                 android:background="@null"
                 android:contentDescription="@string/accessibility_add_reminder"
