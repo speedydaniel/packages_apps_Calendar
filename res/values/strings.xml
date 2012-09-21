@@ -29,6 +29,19 @@
     <string name="timezone_label">Time zone</string>
     <!-- This is the label for the Guests/Attendees of an event -->
     <string name="attendees_label">Guests</string>
+    <!-- Text to show when an event starts on the current day -->
+    <string name="today">Today</string>
+    <!-- Text to show when an event starts on the next day -->
+    <string name="tomorrow">Tomorrow</string>
+    <!-- Text for an event starting on the current day with a start and end time.
+         For ex, "Today at 5:00pm-6:00pm" [CHAR LIMIT=NONE] -->
+    <string name="today_at_time_fmt">"Today at <xliff:g id="time_interval">%s</xliff:g>"</string>
+    <!-- Text for an event starting on the next day with a start and end time.
+         For ex, "Tomorrow at 5:00pm-6:00pm" [CHAR LIMIT=NONE] -->
+    <string name="tomorrow_at_time_fmt">"Tomorrow at <xliff:g id="time_interval">%s</xliff:g>"</string>
+    <!-- Format string for a date and time description.  For ex:
+         "April 19, 2012, 3:00pm - 4:00pm" [CHAR LIMIT=NONE] -->
+    <string name="date_time_fmt">"<xliff:g id="date">%s</xliff:g>, <xliff:g id="time_interval">%s</xliff:g>"</string>
 
     <!-- Some events repeat daily, weekly, monthly, or yearly.  This is the label
          for all the choices about how often an event repeats (including the choice
@@ -192,9 +205,9 @@
     <!-- Toast message displayed when a new event was not saved because it was empty [CHAR LIMIT=30] -->
     <string name="empty_event">"Empty event not created."</string>
     <!-- Toast message displayed when a new event with guests is created -->
-    <string name="creating_event_with_guest">"Invitations sent."</string>
+    <string name="creating_event_with_guest">"Invitations will be sent."</string>
     <!-- Toast message displayed when an existing event with guests is saved after being modified -->
-    <string name="saving_event_with_guest">"Updates sent."</string>
+    <string name="saving_event_with_guest">"Updates will be sent."</string>
     <!-- Title of message displayed to indicate available calendars are being loaded when creating
          a new event -->
 
@@ -270,6 +283,35 @@
     <string name="response_maybe">Maybe</string>
     <!-- Response for whether attending an event - declined [CHAR LIMIT=10]-->
     <string name="response_no">No</string>
+    <!-- Label for emailing attendees -->
+    <string name="email_guests_label">Email guests</string>
+    <!-- This is shown in the popup picker when emailing attendees -->
+    <string name="email_picker_label">Email with</string>
+    <!-- The is shown in the email subject as the prefix appended to the event title -->
+    <string translatable="false" name="email_subject_prefix">Re:\u0020</string>
+
+    <!-- Title of the quick response item in Settings [CHAR LIMIT=18]-->
+    <string name="quick_response_settings">Quick responses</string>
+    <!-- Summary of the quick response item in Settings [CHAR LIMIT=80]-->
+    <string name="quick_response_settings_summary">Edit default responses when emailing guests</string>
+    <!-- Title of the quick response screen in Settings->Quick Response [CHAR LIMIT=19]-->
+    <string name="quick_response_settings_title">Edit quick responses</string>
+    <!-- Title of the quick response item in Settings [CHAR LIMIT=18]-->
+    <string name="quick_response_settings_edit_title">Quick response</string>
+
+    <!-- Title of the dialog prompting the user choose a response when emailing guests  [CHAR LIMIT=none]-->
+    <string name="quick_response_dialog_title">Choose quick response</string>
+    <!-- Error to user when an email program can't be found[CHAR LIMIT=none]-->
+    <string name="quick_response_email_failed">Failed to find an email program</string>
+    <!-- The is shown in the email subject as the prefix appended to the event title [CHAR LIMIT=none]-->
+    <string-array name="quick_response_defaults">
+        <item>Running just a couple of minutes late.</item>
+        <item>Be there in about 10 minutes.</item>
+        <item>Go ahead and start without me.</item>
+        <item>Sorry, I can\'t make it. We\'ll have to reschedule.</item>
+        </string-array>
+    <!-- Option to create a custom response instead of using defaults [CHAR LIMIT=none] -->
+    <string name="quick_response_custom_msg">Custom message\u2026</string>
 
     <!-- Event Info strings-->
     <!-- Time Zone Label [CHAR LIMIT=12]-->
@@ -278,10 +320,6 @@
 
     <!-- Organizer Label [CHAR LIMIT=12]-->
     <string name="event_info_organizer">Organizer:</string>
-    <!-- More label in description button [CHAR LIMIT=6]-->
-    <string name="event_info_desc_more">More</string>
-    <!-- Less label in description button [CHAR LIMIT=6]-->
-    <string name="event_info_desc_less">Less</string>
     <!-- Reminders label [CHAR LIMIT=15]-->
     <string name="event_info_reminders_label">Reminders</string>
 
@@ -330,6 +368,9 @@
     <!-- The button label for dismissing all the current reminder alarms. This
          causes them to disappear from the notification screen. -->
     <string name="dismiss_all_label">"Dismiss all"</string>
+    <!-- The button label for making the reminder alarms go away temporarily
+         and re-fire in 5 minutes. [CHAR LIMIT=12]-->
+    <string name="snooze_label">"Snooze"</string>
 
     <!-- Repetition dialog options: -->
     <skip/>
@@ -396,6 +437,10 @@
          user has asked to delete an event. The user still has a chance to cancel
          this operation. -->
     <string name="delete_this_event_title">Delete this event?</string>
+    <!-- This is a confirmation message in a popup dialog that appears when the
+         user has asked to delete an event that is recurring. The user still has a chance to cancel
+         this operation. -->
+    <string name="delete_recurring_event_title">Delete <xliff:g id="eventtitle">%s</xliff:g>?</string>
     <!-- This is the title of a popup dialog that asks for confirmation before
          changing the response to an invitation. -->
     <string name="change_response_title">Change response</string>
@@ -509,9 +554,6 @@
     <!-- Caption to show on gadget when there are no upcoming calendar events -->
     <string name="gadget_no_events">No upcoming calendar events</string>
 
-    <!-- Text to show on gadget when an event starts on the next day -->
-    <string name="tomorrow">Tomorrow</string>
-
     <!-- Text to show on gadget when an event is currently in progress -->
 
 
@@ -566,6 +608,10 @@
     <string name="accessibility_reminder_showmeas">Show me as</string>
     <!-- Set the event as private/public/default [CHAR LIMIT = NONE]-->
     <string name="accessibility_reminder_privacy">Privacy</string>
+    <!-- Calendar notification [CHAR LIMIT = NONE]-->
+    <string name="acessibility_cal_notification">Calendar Notification</string>
+    <!-- Calendar notification snooze button [CHAR LIMIT = NONE]-->
+    <string name="acessibility_snooze_notification">Snooze Notification</string>
 
     <!-- A "new event" hint for the user when selecting a specific hour in the day view [CHAR LIMIT = 30]-->
     <string name="day_view_new_event_hint">+ New event</string>
@@ -576,4 +622,25 @@
     -->
     <string name="template_announce_item_index">Event <xliff:g id="item_index">%1$s</xliff:g> of <xliff:g id="item_count">%2$s</xliff:g>.</string>
 
+        <!-- number of events in the notification bar -->
+    <plurals name="Nevents">
+        <!-- This is the label for a 1 event. -->
+        <item quantity="one">1 event</item>
+        <!-- This is the label for 2 or more events. -->
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> events</item>
+    </plurals>
+
+    <!-- number of remaining events for an alert digest in the notification bar [CHAR LIMIT = 30] -->
+    <plurals name="N_remaining_events">
+        <!-- This is the label for 1 event. -->
+        <item quantity="one">+1 event</item>
+        <!-- This is the label for 2 or more events. -->
+        <item quantity="other">+<xliff:g id="count">%d</xliff:g> events</item>
+    </plurals>
+
+    <!-- Description of the selected marker for accessibility support [CHAR LIMIT = NONE]-->
+    <string name="acessibility_selected_marker_description">Selected event</string>
+
+    <!-- Tell user not to check a checkbox [CHAR LIMIT=30] -->
+    <string name="do_not_check">Do NOT check -></string>
 </resources>

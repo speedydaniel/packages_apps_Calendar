@@ -16,14 +16,6 @@
 
 package com.android.calendar.month;
 
-import com.android.calendar.CalendarController;
-import com.android.calendar.CalendarController.EventInfo;
-import com.android.calendar.CalendarController.EventType;
-import com.android.calendar.CalendarController.ViewType;
-import com.android.calendar.Event;
-import com.android.calendar.R;
-import com.android.calendar.Utils;
-
 import android.app.Activity;
 import android.app.LoaderManager;
 import android.content.ContentUris;
@@ -39,8 +31,6 @@ import android.provider.CalendarContract.Instances;
 import android.text.format.DateUtils;
 import android.text.format.Time;
 import android.util.Log;
-import android.view.GestureDetector;
-import android.view.GestureDetector.SimpleOnGestureListener;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -50,9 +40,18 @@ import android.view.ViewGroup;
 import android.widget.AbsListView;
 import android.widget.AbsListView.OnScrollListener;
 
+import com.android.calendar.CalendarController;
+import com.android.calendar.CalendarController.EventInfo;
+import com.android.calendar.CalendarController.EventType;
+import com.android.calendar.CalendarController.ViewType;
+import com.android.calendar.Event;
+import com.android.calendar.R;
+import com.android.calendar.Utils;
+
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.List;
 
 public class MonthByWeekFragment extends SimpleDayPickerFragment implements
         CalendarController.EventHandler, LoaderManager.LoaderCallbacks<Cursor>, OnScrollListener,
@@ -83,16 +82,16 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
 
     private CursorLoader mLoader;
     private Uri mEventUri;
-    private GestureDetector mGestureDetector;
-    private Time mDesiredDay = new Time();
+    private final Time mDesiredDay = new Time();
 
     private volatile boolean mShouldLoad = true;
     private boolean mUserScrolled = false;
 
-    private static float mScale = 0;
-    private static int SPACING_WEEK_NUMBER = 19;
+    private int mEventsLoadingDelay;
+    private boolean mShowCalendarControls;
+    private boolean mIsDetached;
 
-    private Runnable mTZUpdater = new Runnable() {
+    private final Runnable mTZUpdater = new Runnable() {
         @Override
         public void run() {
             String tz = Utils.getTimeZone(mContext, mTZUpdater);
@@ -110,7 +109,7 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
     };
 
 
-    private Runnable mUpdateLoader = new Runnable() {
+    private final Runnable mUpdateLoader = new Runnable() {
         @Override
         public void run() {
             synchronized (this) {
@@ -132,6 +131,17 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
             }
         }
     };
+    // Used to load the events when a delay is needed
+    Runnable mLoadingRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!mIsDetached) {
+                mLoader = (CursorLoader) getLoaderManager().initLoader(0, null,
+                        MonthByWeekFragment.this);
+            }
+        }
+    };
+
 
     /**
      * Updates the uri used by the loader according to the current position of
@@ -160,6 +170,21 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
         return builder.build();
     }
 
+    // Extract range of julian days from URI
+    private void updateLoadedDays() {
+        List<String> pathSegments = mEventUri.getPathSegments();
+        int size = pathSegments.size();
+        if (size <= 2) {
+            return;
+        }
+        long first = Long.parseLong(pathSegments.get(size - 2));
+        long last = Long.parseLong(pathSegments.get(size - 1));
+        mTempTime.set(first);
+        mFirstLoadedJulianDay = Time.getJulianDay(first, mTempTime.gmtoff);
+        mTempTime.set(last);
+        mLastLoadedJulianDay = Time.getJulianDay(last, mTempTime.gmtoff);
+    }
+
     protected String updateWhere() {
         // TODO fix selection/selection args after b/3206641 is fixed
         String where = WHERE_CALENDARS_VISIBLE;
@@ -182,43 +207,6 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
         }
     }
 
-    class MonthGestureListener extends SimpleOnGestureListener {
-        @Override
-        public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX,
-                float velocityY) {
-            // TODO decide how to handle flings
-//            float absX = Math.abs(velocityX);
-//            float absY = Math.abs(velocityY);
-//            Log.d(TAG, "velX: " + velocityX + " velY: " + velocityY);
-//            if (absX > absY && absX > mMinimumFlingVelocity) {
-//                mTempTime.set(mFirstDayOfMonth);
-//                if(velocityX > 0) {
-//                    mTempTime.month++;
-//                } else {
-//                    mTempTime.month--;
-//                }
-//                mTempTime.normalize(true);
-//                goTo(mTempTime, true, false, true);
-//
-//            } else if (absY > absX && absY > mMinimumFlingVelocity) {
-//                mTempTime.set(mFirstDayOfMonth);
-//                int diff = 1;
-//                if (absY > mMinimumTwoMonthFlingVelocity) {
-//                    diff = 2;
-//                }
-//                if(velocityY < 0) {
-//                    mTempTime.month += diff;
-//                } else {
-//                    mTempTime.month -= diff;
-//                }
-//                mTempTime.normalize(true);
-//
-//                goTo(mTempTime, true, false, true);
-//            }
-            return false;
-        }
-    }
-
     @Override
     public void onAttach(Activity activity) {
         super.onAttach(activity);
@@ -226,17 +214,27 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
         if (mAdapter != null) {
             mAdapter.setSelectedDay(mSelectedDay);
         }
+        mIsDetached = false;
 
-        mGestureDetector = new GestureDetector(activity, new MonthGestureListener());
         ViewConfiguration viewConfig = ViewConfiguration.get(activity);
         mMinimumTwoMonthFlingVelocity = viewConfig.getScaledMaximumFlingVelocity() / 2;
+        Resources res = activity.getResources();
+        mShowCalendarControls = Utils.getConfigBool(activity, R.bool.show_calendar_controls);
+        // Synchronized the loading time of the month's events with the animation of the
+        // calendar controls.
+        if (mShowCalendarControls) {
+            mEventsLoadingDelay = res.getInteger(R.integer.calendar_controls_animation_time);
+        }
+        mShowDetailsInMonth = res.getBoolean(R.bool.show_details_in_month);
+    }
 
-        if (mScale == 0) {
-            Resources res = activity.getResources();
-            mScale = res.getDisplayMetrics().density;
-            mShowDetailsInMonth = res.getBoolean(R.bool.show_details_in_month);
-            if (mScale != 1) {
-                SPACING_WEEK_NUMBER *= mScale;
+    @Override
+    public void onDetach() {
+        mIsDetached = true;
+        super.onDetach();
+        if (mShowCalendarControls) {
+            if (mListView != null) {
+                mListView.removeCallbacks(mLoadingRunnable);
             }
         }
     }
@@ -280,7 +278,18 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
         mListView.setOnTouchListener(this);
-        mLoader = (CursorLoader) getLoaderManager().initLoader(0, null, this);
+        if (!mIsMiniMonth) {
+            mListView.setBackgroundColor(getResources().getColor(R.color.month_bgcolor));
+        }
+
+        // To get a smoother transition when showing this fragment, delay loading of events until
+        // the fragment is expended fully and the calendar controls are gone.
+        if (mShowCalendarControls) {
+            mListView.postDelayed(mLoadingRunnable, mEventsLoadingDelay);
+        } else {
+            mLoader = (CursorLoader) getLoaderManager().initLoader(0, null, this);
+        }
+        mAdapter.setListView(mListView);
     }
 
     public MonthByWeekFragment() {
@@ -357,6 +366,7 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
             CursorLoader cLoader = (CursorLoader) loader;
             if (mEventUri == null) {
                 mEventUri = cLoader.getUri();
+                updateLoadedDays();
             }
             if (cLoader.getUri().compareTo(mEventUri) != 0) {
                 // We've started a new query since this loader ran so ignore the
@@ -472,10 +482,9 @@ public class MonthByWeekFragment extends SimpleDayPickerFragment implements
     @Override
     public boolean onTouch(View v, MotionEvent event) {
         mDesiredDay.setToNow();
-        return mGestureDetector.onTouchEvent(event);
+        return false;
         // TODO post a cleanup to push us back onto the grid if something went
         // wrong in a scroll such as the user stopping the view but not
         // scrolling
     }
-
 }

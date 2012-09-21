@@ -22,6 +22,11 @@
     <string name="when_label" msgid="894636567327261599">"Quando"</string>
     <string name="timezone_label" msgid="3988530993300431650">"Fuso horário"</string>
     <string name="attendees_label" msgid="2971281641565729725">"Convidados"</string>
+    <string name="today" msgid="8577375020252453006">"Hoje"</string>
+    <string name="tomorrow" msgid="614434811813859237">"Amanhã"</string>
+    <string name="today_at_time_fmt" msgid="1981279213130049736">"Hoje às <xliff:g id="TIME_INTERVAL">%s</xliff:g>"</string>
+    <string name="tomorrow_at_time_fmt" msgid="1330779112841767432">"Amanhã às <xliff:g id="TIME_INTERVAL">%s</xliff:g>"</string>
+    <string name="date_time_fmt" msgid="1642972650061946484">"<xliff:g id="DATE">%s</xliff:g>, <xliff:g id="TIME_INTERVAL">%s</xliff:g>"</string>
     <string name="repeats_label" msgid="7414023871434593196">"Repetição"</string>
     <string name="no_title_label" msgid="302177118061368042">"(Sem título)"</string>
   <plurals name="Nminutes">
@@ -73,8 +78,8 @@
     <string name="creating_event" msgid="7516249252554059980">"Evento criado."</string>
     <string name="saving_event" msgid="7694181017411177226">"Evento guardado."</string>
     <string name="empty_event" msgid="9018699257414338634">"Evento vazio não criado."</string>
-    <string name="creating_event_with_guest" msgid="8535098983005383300">"Convites enviados."</string>
-    <string name="saving_event_with_guest" msgid="8678551213800311856">"Atualizações enviadas."</string>
+    <string name="creating_event_with_guest" msgid="5758688413124191931">"Serão enviados convites."</string>
+    <string name="saving_event_with_guest" msgid="9184584438475689577">"Serão enviadas atualizações."</string>
     <string name="alert_title" msgid="7869592820853066853">"Notificações do calendário"</string>
     <string name="event_info_title" msgid="56024222340421620">"Visualizar evento"</string>
     <string name="event_info_title_invite" msgid="9160326363769403865">"Convite para reunião"</string>
@@ -97,9 +102,22 @@
     <string name="response_yes" msgid="2027484304899988350">"Sim"</string>
     <string name="response_maybe" msgid="7791500973627841695">"Talvez"</string>
     <string name="response_no" msgid="561911691884148136">"Não"</string>
+    <string name="email_guests_label" msgid="8772030932155305903">"Enviar email para os convidados"</string>
+    <string name="email_picker_label" msgid="4808253965057791781">"Enviar email a"</string>
+    <string name="quick_response_settings" msgid="6776151690686068278">"Respostas rápidas"</string>
+    <string name="quick_response_settings_summary" msgid="7878304729027355604">"Editar respostas predefinidas ao enviar email a convidados"</string>
+    <string name="quick_response_settings_title" msgid="8966517107774567031">"Editar respostas rápidas"</string>
+    <string name="quick_response_settings_edit_title" msgid="6260055523174081930">"Resposta rápida"</string>
+    <string name="quick_response_dialog_title" msgid="2681309456412199207">"Escolher resposta rápida"</string>
+    <string name="quick_response_email_failed" msgid="5544066405231853245">"Não foi possível encontrar um programa de email"</string>
+  <string-array name="quick_response_defaults">
+    <item msgid="1524421198348168403">"Estou ligeiramente atrasado."</item>
+    <item msgid="6215158751728689832">"Chegarei em cerca de 10 minutos."</item>
+    <item msgid="4485794001743679338">"Podem começar sem mim."</item>
+    <item msgid="8036557974294987511">"Lamento, mas não me é possível comparecer. Teremos de reagendar."</item>
+  </string-array>
+    <string name="quick_response_custom_msg" msgid="7265035125070482285">"Mensagem personalizada..."</string>
     <string name="event_info_organizer" msgid="9138683335394832629">"Organizador:"</string>
-    <string name="event_info_desc_more" msgid="2961880675118098743">"Mais"</string>
-    <string name="event_info_desc_less" msgid="8295683160345195225">"Menos"</string>
     <string name="event_info_reminders_label" msgid="8913097552956388972">"Lembretes"</string>
     <string name="agenda_today" msgid="5965841338467422191">"HOJE, <xliff:g id="DATE">%1$s</xliff:g>"</string>
     <string name="agenda_yesterday" msgid="4170964206728599693">"ONTEM, <xliff:g id="DATE">%1$s</xliff:g>"</string>
@@ -115,6 +133,7 @@
     <string name="discard_label" msgid="2394623883289782541">"Cancelar"</string>
     <string name="snooze_all_label" msgid="4994488813124409077">"Suspender todos"</string>
     <string name="dismiss_all_label" msgid="1834400025868091301">"Cancelar tudo"</string>
+    <string name="snooze_label" msgid="1515893621063224666">"Suspender"</string>
     <string name="does_not_repeat" msgid="1877681921029738999">"Evento único"</string>
     <string name="daily" msgid="560350706808680448">"Diariamente"</string>
     <string name="every_weekday" msgid="5896574838353902978">"Todos os dias úteis (Seg-Sex)"</string>
@@ -132,6 +151,7 @@
     <string name="new_event_dialog_label" msgid="7553105224561147916">"Novo evento"</string>
     <string name="new_event_dialog_option" msgid="6154657379574669371">"Novo evento"</string>
     <string name="delete_this_event_title" msgid="518402946676919384">"Eliminar este evento?"</string>
+    <string name="delete_recurring_event_title" msgid="5609046778422180206">"Eliminar <xliff:g id="EVENTTITLE">%s</xliff:g>?"</string>
     <string name="change_response_title" msgid="7704714776070974984">"Alterar resposta"</string>
     <string name="menu_general_preferences" msgid="2812705323334260708">"Definições gerais"</string>
     <string name="menu_about_preferences" msgid="6124375438237674973">"Acerca do Calendário"</string>
@@ -169,7 +189,6 @@
     <item quantity="other" msgid="1997405398178470838">"+<xliff:g id="NUMBER">%d</xliff:g>"</item>
   </plurals>
     <string name="gadget_no_events" msgid="5209110911088302855">"Sem eventos futuros no calendário"</string>
-    <string name="tomorrow" msgid="614434811813859237">"Amanhã"</string>
     <string name="copy_db" msgid="437691290566699292">"Enviar base de dados"</string>
     <string name="directory_searching_fmt" msgid="1232037509095606687">"A pesquisar <xliff:g id="DOMAIN">%s</xliff:g>…"</string>
     <string name="accessibility_remove_attendee" msgid="7082751172654698863">"Remover participante"</string>
@@ -188,6 +207,18 @@
     <string name="accessibility_reminder_type" msgid="5339120699701437227">"Tipo de lembrete"</string>
     <string name="accessibility_reminder_showmeas" msgid="6669129015980006570">"Mostrar-me como"</string>
     <string name="accessibility_reminder_privacy" msgid="8669288484484022771">"Privacidade"</string>
+    <string name="acessibility_cal_notification" msgid="7267601064994839394">"Notificação do Calendário"</string>
+    <string name="acessibility_snooze_notification" msgid="5007852779125102681">"Suspender Notificação"</string>
     <string name="day_view_new_event_hint" msgid="2131483437911536229">"+ Novo evento"</string>
     <string name="template_announce_item_index" msgid="4067877800670753110">"Evento <xliff:g id="ITEM_INDEX">%1$s</xliff:g> de <xliff:g id="ITEM_COUNT">%2$s</xliff:g>."</string>
+  <plurals name="Nevents">
+    <item quantity="one" msgid="5230907142214104485">"1 evento"</item>
+    <item quantity="other" msgid="6093072093209431078">"<xliff:g id="COUNT">%d</xliff:g> eventos"</item>
+  </plurals>
+  <plurals name="N_remaining_events">
+    <item quantity="one" msgid="431585781647034528">"+1 evento"</item>
+    <item quantity="other" msgid="3609243840882275136">"+<xliff:g id="COUNT">%d</xliff:g> eventos"</item>
+  </plurals>
+    <string name="acessibility_selected_marker_description" msgid="3010149843148810768">"Evento selecionado"</string>
+    <string name="do_not_check" msgid="7815441673853466129">"NÃO marque -&gt;"</string>
 </resources>

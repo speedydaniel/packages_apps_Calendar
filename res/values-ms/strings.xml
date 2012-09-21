@@ -22,6 +22,11 @@
     <string name="when_label" msgid="894636567327261599">"Bila"</string>
     <string name="timezone_label" msgid="3988530993300431650">"Zon waktu"</string>
     <string name="attendees_label" msgid="2971281641565729725">"Tamu"</string>
+    <string name="today" msgid="8577375020252453006">"Hari ini"</string>
+    <string name="tomorrow" msgid="614434811813859237">"Esok"</string>
+    <string name="today_at_time_fmt" msgid="1981279213130049736">"Hari ini pada <xliff:g id="TIME_INTERVAL">%s</xliff:g>"</string>
+    <string name="tomorrow_at_time_fmt" msgid="1330779112841767432">"Esok pada <xliff:g id="TIME_INTERVAL">%s</xliff:g>"</string>
+    <string name="date_time_fmt" msgid="1642972650061946484">"<xliff:g id="DATE">%s</xliff:g>, <xliff:g id="TIME_INTERVAL">%s</xliff:g>"</string>
     <string name="repeats_label" msgid="7414023871434593196">"Ulangan"</string>
     <string name="no_title_label" msgid="302177118061368042">"(Tiada tajuk)"</string>
   <plurals name="Nminutes">
@@ -73,8 +78,8 @@
     <string name="creating_event" msgid="7516249252554059980">"Acara sudah dibuat."</string>
     <string name="saving_event" msgid="7694181017411177226">"Acara sudah disimpan."</string>
     <string name="empty_event" msgid="9018699257414338634">"Acara kosong tidak dibuat."</string>
-    <string name="creating_event_with_guest" msgid="8535098983005383300">"Jemputan telah dihantar."</string>
-    <string name="saving_event_with_guest" msgid="8678551213800311856">"Kemas kini telah dihantar."</string>
+    <string name="creating_event_with_guest" msgid="5758688413124191931">"Jemputan akan dihantar."</string>
+    <string name="saving_event_with_guest" msgid="9184584438475689577">"Kemas kini akan dihantar."</string>
     <string name="alert_title" msgid="7869592820853066853">"Pemberitahuan kalendar"</string>
     <string name="event_info_title" msgid="56024222340421620">"Lihat acara"</string>
     <string name="event_info_title_invite" msgid="9160326363769403865">"Jemputan pertemuan"</string>
@@ -97,9 +102,22 @@
     <string name="response_yes" msgid="2027484304899988350">"Ya"</string>
     <string name="response_maybe" msgid="7791500973627841695">"Mungkin"</string>
     <string name="response_no" msgid="561911691884148136">"Tidak"</string>
+    <string name="email_guests_label" msgid="8772030932155305903">"Hantarkan e-mel kepada tetamu"</string>
+    <string name="email_picker_label" msgid="4808253965057791781">"E-mel dengan"</string>
+    <string name="quick_response_settings" msgid="6776151690686068278">"Respons pantas"</string>
+    <string name="quick_response_settings_summary" msgid="7878304729027355604">"Edit jawapan lalai semasa menghantar e-mel kepada tetamu"</string>
+    <string name="quick_response_settings_title" msgid="8966517107774567031">"Edit respons pantas"</string>
+    <string name="quick_response_settings_edit_title" msgid="6260055523174081930">"Respons pantas"</string>
+    <string name="quick_response_dialog_title" msgid="2681309456412199207">"Pilih respons pantas"</string>
+    <string name="quick_response_email_failed" msgid="5544066405231853245">"Gagal mencari program e-mel"</string>
+  <string-array name="quick_response_defaults">
+    <item msgid="1524421198348168403">"Terlewat beberapa minit sahaja."</item>
+    <item msgid="6215158751728689832">"Ada di sana dalam kira-kira 10 minit."</item>
+    <item msgid="4485794001743679338">"Teruskan dan mulakan tanpa saya."</item>
+    <item msgid="8036557974294987511">"Maaf, saya tidak dapat datang. Kita perlu menjadualkannya semula."</item>
+  </string-array>
+    <string name="quick_response_custom_msg" msgid="7265035125070482285">"Mesej peribadi..."</string>
     <string name="event_info_organizer" msgid="9138683335394832629">"Penganjur:"</string>
-    <string name="event_info_desc_more" msgid="2961880675118098743">"Lagi"</string>
-    <string name="event_info_desc_less" msgid="8295683160345195225">"Kurang"</string>
     <string name="event_info_reminders_label" msgid="8913097552956388972">"Peringatan"</string>
     <string name="agenda_today" msgid="5965841338467422191">"HARI INI, <xliff:g id="DATE">%1$s</xliff:g>"</string>
     <string name="agenda_yesterday" msgid="4170964206728599693">"SEMALAM, <xliff:g id="DATE">%1$s</xliff:g>"</string>
@@ -115,6 +133,7 @@
     <string name="discard_label" msgid="2394623883289782541">"Batal"</string>
     <string name="snooze_all_label" msgid="4994488813124409077">"Tidurkan sekejap semua"</string>
     <string name="dismiss_all_label" msgid="1834400025868091301">"Ketepikan semua"</string>
+    <string name="snooze_label" msgid="1515893621063224666">"Tidur sekejap"</string>
     <string name="does_not_repeat" msgid="1877681921029738999">"Acara satu kali"</string>
     <string name="daily" msgid="560350706808680448">"Harian"</string>
     <string name="every_weekday" msgid="5896574838353902978">"Setiap hari kerja (Isn-Jum)"</string>
@@ -132,6 +151,7 @@
     <string name="new_event_dialog_label" msgid="7553105224561147916">"Acara baru"</string>
     <string name="new_event_dialog_option" msgid="6154657379574669371">"Acara baru"</string>
     <string name="delete_this_event_title" msgid="518402946676919384">"Padamkan acara ini?"</string>
+    <string name="delete_recurring_event_title" msgid="5609046778422180206">"Padam <xliff:g id="EVENTTITLE">%s</xliff:g>?"</string>
     <string name="change_response_title" msgid="7704714776070974984">"Tukar jawapan"</string>
     <string name="menu_general_preferences" msgid="2812705323334260708">"Tetapan umum"</string>
     <string name="menu_about_preferences" msgid="6124375438237674973">"Mengenai Kalendar"</string>
@@ -169,7 +189,6 @@
     <item quantity="other" msgid="1997405398178470838">"+<xliff:g id="NUMBER">%d</xliff:g>"</item>
   </plurals>
     <string name="gadget_no_events" msgid="5209110911088302855">"Tiada acara kalendar yang akan datang"</string>
-    <string name="tomorrow" msgid="614434811813859237">"Esok"</string>
     <string name="copy_db" msgid="437691290566699292">"Hantar pangkalan data"</string>
     <string name="directory_searching_fmt" msgid="1232037509095606687">"Mencari <xliff:g id="DOMAIN">%s</xliff:g>..."</string>
     <string name="accessibility_remove_attendee" msgid="7082751172654698863">"Alih keluar hadirin"</string>
@@ -188,6 +207,18 @@
     <string name="accessibility_reminder_type" msgid="5339120699701437227">"Jenis peringatan"</string>
     <string name="accessibility_reminder_showmeas" msgid="6669129015980006570">"Tunjukkan saya sebagai"</string>
     <string name="accessibility_reminder_privacy" msgid="8669288484484022771">"Privasi"</string>
+    <string name="acessibility_cal_notification" msgid="7267601064994839394">"Pemberitahuan Kalendar"</string>
+    <string name="acessibility_snooze_notification" msgid="5007852779125102681">"Tunda Pemberitahuan"</string>
     <string name="day_view_new_event_hint" msgid="2131483437911536229">"+ Acara baru"</string>
     <string name="template_announce_item_index" msgid="4067877800670753110">"Acara <xliff:g id="ITEM_INDEX">%1$s</xliff:g> daripada <xliff:g id="ITEM_COUNT">%2$s</xliff:g>."</string>
+  <plurals name="Nevents">
+    <item quantity="one" msgid="5230907142214104485">"1 acara"</item>
+    <item quantity="other" msgid="6093072093209431078">"<xliff:g id="COUNT">%d</xliff:g> acara"</item>
+  </plurals>
+  <plurals name="N_remaining_events">
+    <item quantity="one" msgid="431585781647034528">"+1 acara"</item>
+    <item quantity="other" msgid="3609243840882275136">"+<xliff:g id="COUNT">%d</xliff:g> acara"</item>
+  </plurals>
+    <string name="acessibility_selected_marker_description" msgid="3010149843148810768">"Acara dipilih"</string>
+    <string name="do_not_check" msgid="7815441673853466129">"JANGAN periksa -&gt;"</string>
 </resources>

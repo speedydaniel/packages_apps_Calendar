@@ -61,15 +61,15 @@ public class SimpleDayPickerFragment extends ListFragment implements OnScrollLis
     // Affects when the month selection will change while scrolling up
     protected static final int SCROLL_HYST_WEEKS = 2;
     // How long the GoTo fling animation should last
-    protected static final int GOTO_SCROLL_DURATION = 1000;
+    protected static final int GOTO_SCROLL_DURATION = 500;
     // How long to wait after receiving an onScrollStateChanged notification
     // before acting on it
     protected static final int SCROLL_CHANGE_DELAY = 40;
     // The number of days to display in each week
-    protected static final int DAYS_PER_WEEK = 7;
+    public static final int DAYS_PER_WEEK = 7;
     // The size of the month name displayed above the week list
     protected static final int MINI_MONTH_NAME_TEXT_SIZE = 18;
-    protected static int LIST_TOP_OFFSET = -1;  // so that the top line will be under the separator
+    public static int LIST_TOP_OFFSET = -1;  // so that the top line will be under the separator
     protected int WEEK_MIN_VISIBLE_HEIGHT = 12;
     protected int BOTTOM_BUFFER = 20;
     protected int mSaturdayColor = 0;
@@ -82,8 +82,7 @@ public class SimpleDayPickerFragment extends ListFragment implements OnScrollLis
     protected int mDaysPerWeek = 7;
 
     // These affect the scroll speed and feel
-    protected float mFriction = .05f;
-    protected float mVelocityScale = 0.333f;
+    protected float mFriction = 1.0f;
 
     protected Context mContext;
     protected Handler mHandler;
@@ -273,8 +272,7 @@ public class SimpleDayPickerFragment extends ListFragment implements OnScrollLis
         mListView.setOnScrollListener(this);
         mListView.setFadingEdgeLength(0);
         // Make the scrolling behavior nicer
-        mListView.setFriction(mFriction);
-        mListView.setVelocityScale(mVelocityScale);
+        mListView.setFriction(ViewConfiguration.getScrollFriction() * mFriction);
     }
 
     @Override

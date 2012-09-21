@@ -320,8 +320,11 @@ public class SelectSyncedCalendarsMultiAccountAdapter extends CursorTreeAdapter 
         int accountTypeColumn = cursor.getColumnIndexOrThrow(Calendars.ACCOUNT_TYPE);
         String account = cursor.getString(accountColumn);
         String accountType = cursor.getString(accountTypeColumn);
+        CharSequence accountLabel = getLabelForType(accountType);
         setText(view, R.id.account, account);
-        setText(view, R.id.account_type, getLabelForType(accountType).toString());
+        if (accountLabel != null) {
+            setText(view, R.id.account_type, accountLabel.toString());
+        }
     }
 
     @Override
@@ -331,7 +334,7 @@ public class SelectSyncedCalendarsMultiAccountAdapter extends CursorTreeAdapter 
         String account = groupCursor.getString(accountColumn);
         String accountType = groupCursor.getString(accountTypeColumn);
         //Get all the calendars for just this account.
-        Cursor childCursor = mChildrenCursors.get(account);
+        Cursor childCursor = mChildrenCursors.get(accountType + "#" + account);
         new RefreshCalendars(groupCursor.getPosition(), account, accountType).run();
         return childCursor;
     }
@@ -354,9 +357,9 @@ public class SelectSyncedCalendarsMultiAccountAdapter extends CursorTreeAdapter 
         String mAccount;
         String mAccountType;
 
-        public RefreshCalendars(int token, String cookie, String accountType) {
+        public RefreshCalendars(int token, String account, String accountType) {
             mToken = token;
-            mAccount = cookie;
+            mAccount = account;
             mAccountType = accountType;
         }
 
@@ -368,7 +371,7 @@ public class SelectSyncedCalendarsMultiAccountAdapter extends CursorTreeAdapter 
                         REFRESH_DELAY);
             }
             mCalendarsUpdater.startQuery(mToken,
-                    mAccount,
+                    mAccountType + "#" + mAccount,
                     Calendars.CONTENT_URI, PROJECTION,
                     ACCOUNT_SELECTION,
                     new String[] { mAccount, mAccountType } /*selectionArgs*/,

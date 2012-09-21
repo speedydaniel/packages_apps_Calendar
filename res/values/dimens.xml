@@ -41,7 +41,15 @@
     <dimen name="edit_event_view_width">800dip</dimen>
     <dimen name="edit_event_view_padding_left">80dip</dimen>
     <dimen name="edit_event_view_padding_right">80dip</dimen>
+    <dimen name="edit_reminder_min_size">36dip</dimen>
     <dimen name="event_info_text_size">14dip</dimen>
     <dimen name="event_info_desc_margin_left">0dip</dimen>
     <dimen name="event_info_desc_margin_right">0dip</dimen>
+    <dimen name="event_info_padding">0dip</dimen>
+    <dimen name="calendar_controls_width">280dip</dimen>
+    <dimen name="min_portrait_calendar_controls_width">300dip</dimen>
+    <dimen name="max_portrait_calendar_controls_width">350dip</dimen>
+    <dimen name="calendar_controls_height">300dip</dimen>
+    <dimen name="agenda_item_right_margin">4dip</dimen>
+    <dimen name="today_icon_text_size">14sp</dimen>
 </resources>

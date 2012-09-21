@@ -52,8 +52,8 @@ public class AgendaByDayAdapter extends BaseAdapter {
     private Time mTmpTime;
     private String mTimeZone;
     // Note: Formatter is not thread safe. Fine for now as it is only used by the main thread.
-    private Formatter mFormatter;
-    private StringBuilder mStringBuilder;
+    private final Formatter mFormatter;
+    private final StringBuilder mStringBuilder;
 
     static class ViewHolder {
         TextView dayView;
@@ -62,7 +62,7 @@ public class AgendaByDayAdapter extends BaseAdapter {
         boolean grayed;
     }
 
-    private Runnable mTZUpdater = new Runnable() {
+    private final Runnable mTZUpdater = new Runnable() {
         @Override
         public void run() {
             mTimeZone = Utils.getTimeZone(mContext, this);
@@ -245,7 +245,10 @@ public class AgendaByDayAdapter extends BaseAdapter {
             View itemView = mAgendaAdapter.getView(row.mPosition, convertView, parent);
             AgendaAdapter.ViewHolder holder = ((AgendaAdapter.ViewHolder) itemView.getTag());
             TextView title = holder.title;
-            long eventStartTime = holder.startTimeMilli;
+            // The holder in the view stores information from the cursor, but the cursor has no
+            // notion of multi-day event and the start time of each instance of a multi-day event
+            // is the same.  RowInfo has the correct info , so take it from there.
+            holder.startTimeMilli = row.mEventStartTimeMilli;
             boolean allDay = holder.allDay;
             if (AgendaWindowAdapter.BASICLOG) {
                 title.setText(title.getText() + " P:" + position);
@@ -254,7 +257,7 @@ public class AgendaByDayAdapter extends BaseAdapter {
             }
 
             // if event in the past or started already, un-bold the title and set the background
-            if ((!allDay && eventStartTime <= System.currentTimeMillis()) ||
+            if ((!allDay && row.mEventStartTimeMilli <= System.currentTimeMillis()) ||
                     (allDay && row.mDay <= mTodayJulianDay)) {
                 itemView.setBackgroundResource(R.drawable.agenda_item_bg_secondary);
                 title.setTypeface(Typeface.DEFAULT);
@@ -535,15 +538,14 @@ public class AgendaByDayAdapter extends BaseAdapter {
                 // Found an event that contains the requested time
                 if (millis >= row.mEventStartTimeMilli && millis <= row.mEventEndTimeMilli) {
                     if (row.mAllDay) {
-                        if (millis == row.mEventStartTimeMilli) {
-                            return index;
+                        if (allDayEventInTimeIndex == -1) {
+                            allDayEventInTimeIndex = index;
+                            allDayEventDay = row.mDay;
                         }
-                        allDayEventInTimeIndex = index;
-                        allDayEventDay = row.mDay;
-                    } else {
+                    } else if (eventInTimeIndex == -1){
                         eventInTimeIndex = index;
                     }
-                } else {
+                } else if (eventInTimeIndex == -1){
                     // Save event index if it is the closest to time so far
                     long distance = Math.abs(millis - row.mEventStartTimeMilli);
                     if (distance < minDistance) {
@@ -555,14 +557,19 @@ public class AgendaByDayAdapter extends BaseAdapter {
             }
         }
         // We didn't find an exact match so take the best matching event
+        // Closest event with the same id
         if (idFound) {
             return idFoundMinIndex;
         }
+        // Event which occurs at the searched time
         if (eventInTimeIndex != -1) {
             return eventInTimeIndex;
+        // All day event which occurs at the same day of the searched time as long as there is
+        // no regular event at the same day
         } else if (allDayEventInTimeIndex != -1 && minDay != allDayEventDay) {
             return allDayEventInTimeIndex;
         }
+        // Closest event
         return minIndex;
     }
 

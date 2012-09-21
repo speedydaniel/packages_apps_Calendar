@@ -67,7 +67,7 @@ public class Event implements Cloneable {
             Instances.TITLE,                 // 0
             Instances.EVENT_LOCATION,        // 1
             Instances.ALL_DAY,               // 2
-            Instances.CALENDAR_COLOR,        // 3
+            Instances.DISPLAY_COLOR,         // 3
             Instances.EVENT_TIMEZONE,        // 4
             Instances.EVENT_ID,              // 5
             Instances.BEGIN,                 // 6
@@ -350,6 +350,7 @@ public class Event implements Cloneable {
         mNoColorColor = res.getColor(R.color.event_center);
         // Sort events in two passes so we ensure the allday and standard events
         // get sorted in the correct order
+        cEvents.moveToPosition(-1);
         while (cEvents.moveToNext()) {
             Event e = generateEventFromCursor(cEvents);
             if (e.startDay > endDay || e.endDay < startDay) {

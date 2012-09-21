@@ -21,6 +21,7 @@ import com.android.calendar.AsyncQueryService;
 import com.android.calendar.CalendarEventModel;
 import com.android.calendar.CalendarEventModel.ReminderEntry;
 import com.android.calendar.R;
+import com.android.common.Rfc822Validator;
 
 import android.content.ContentProvider;
 import android.content.ContentProviderOperation;
@@ -877,8 +878,9 @@ public class EditEventHelperTest extends AndroidTestCase {
         expected.add(new Rfc822Token("First Last", "first@email.com", "comment"));
         expected.add(new Rfc822Token(null, "one.two.three@email.grue", ""));
 
-        LinkedHashSet<Rfc822Token> actual = mHelper.getAddressesFromList(TEST_ADDRESSES, null);
-        assertEquals(actual, expected);
+        LinkedHashSet<Rfc822Token> actual = mHelper.getAddressesFromList(TEST_ADDRESSES,
+                new Rfc822Validator(null));
+        assertEquals(expected, actual);
     }
 
     @Smoke
@@ -1100,7 +1102,7 @@ public class EditEventHelperTest extends AndroidTestCase {
 
         result = mHelper.saveReminders(ops, eventId, reminders, originalReminders, forceSave);
         assertTrue(result);
-        assertEquals(ops, expectedOps);
+        assertEquals(expectedOps, ops);
 
         // Now test calling save with identical reminders and no forcing
         reminders.add(ReminderEntry.valueOf(5));
@@ -1127,7 +1129,7 @@ public class EditEventHelperTest extends AndroidTestCase {
 
         result = mHelper.saveReminders(ops, eventId, reminders, originalReminders, forceSave);
         assertTrue(result);
-        assertEquals(ops, expectedOps);
+        assertEquals(expectedOps, ops);
     }
 
     @Smoke
@@ -1386,21 +1388,21 @@ public class EditEventHelperTest extends AndroidTestCase {
 
         mValues.clear();
         mValues.put(Reminders.MINUTES, 5);
-        mValues.put(Reminders.METHOD, Reminders.METHOD_ALERT);
+        mValues.put(Reminders.METHOD, Reminders.METHOD_DEFAULT);
         mValues.put(Reminders.EVENT_ID, TEST_EVENT_ID);
         b = ContentProviderOperation.newInsert(Reminders.CONTENT_URI).withValues(mValues);
         expectedOps.add(b.build());
 
         mValues.clear();
         mValues.put(Reminders.MINUTES, 10);
-        mValues.put(Reminders.METHOD, Reminders.METHOD_ALERT);
+        mValues.put(Reminders.METHOD, Reminders.METHOD_DEFAULT);
         mValues.put(Reminders.EVENT_ID, TEST_EVENT_ID);
         b = ContentProviderOperation.newInsert(Reminders.CONTENT_URI).withValues(mValues);
         expectedOps.add(b.build());
 
         mValues.clear();
         mValues.put(Reminders.MINUTES, 15);
-        mValues.put(Reminders.METHOD, Reminders.METHOD_ALERT);
+        mValues.put(Reminders.METHOD, Reminders.METHOD_DEFAULT);
         mValues.put(Reminders.EVENT_ID, TEST_EVENT_ID);
         b = ContentProviderOperation.newInsert(Reminders.CONTENT_URI).withValues(mValues);
         expectedOps.add(b.build());
@@ -1412,21 +1414,21 @@ public class EditEventHelperTest extends AndroidTestCase {
 
         mValues.clear();
         mValues.put(Reminders.MINUTES, 5);
-        mValues.put(Reminders.METHOD, Reminders.METHOD_ALERT);
+        mValues.put(Reminders.METHOD, Reminders.METHOD_DEFAULT);
         b = ContentProviderOperation.newInsert(Reminders.CONTENT_URI).withValues(mValues);
         b.withValueBackReference(Reminders.EVENT_ID, TEST_EVENT_INDEX_ID);
         expectedOps.add(b.build());
 
         mValues.clear();
         mValues.put(Reminders.MINUTES, 10);
-        mValues.put(Reminders.METHOD, Reminders.METHOD_ALERT);
+        mValues.put(Reminders.METHOD, Reminders.METHOD_DEFAULT);
         b = ContentProviderOperation.newInsert(Reminders.CONTENT_URI).withValues(mValues);
         b.withValueBackReference(Reminders.EVENT_ID, TEST_EVENT_INDEX_ID);
         expectedOps.add(b.build());
 
         mValues.clear();
         mValues.put(Reminders.MINUTES, 15);
-        mValues.put(Reminders.METHOD, Reminders.METHOD_ALERT);
+        mValues.put(Reminders.METHOD, Reminders.METHOD_DEFAULT);
         b = ContentProviderOperation.newInsert(Reminders.CONTENT_URI).withValues(mValues);
         b.withValueBackReference(Reminders.EVENT_ID, TEST_EVENT_INDEX_ID);
         expectedOps.add(b.build());
@@ -1442,7 +1444,9 @@ public class EditEventHelperTest extends AndroidTestCase {
         assertEquals(size, actual.size());
 
         for (int i = 0; i < size; i++) {
-            assertTrue(cpoEquals(expected.get(i), actual.get(i)));
+            assertTrue("At index " + i + ", expected:\n" + String.valueOf(expected) +
+                    "\nActual:\n" + String.valueOf(actual),
+                    cpoEquals(expected.get(i), actual.get(i)));
         }
 
     }
@@ -1482,8 +1486,7 @@ public class EditEventHelperTest extends AndroidTestCase {
         model.mAccessLevel = 2; // This is one less than the values written if >0
         model.mOwnerAccount = "steve@gmail.com";
         model.mHasAttendeeData = true;
-
-
+        model.mEventStatus = Events.STATUS_CONFIRMED;
         return model;
     }
 
@@ -1506,6 +1509,7 @@ public class EditEventHelperTest extends AndroidTestCase {
         values.put(Events.DESCRIPTION, "Evaluating Life, the Universe, and Everything");
         values.put(Events.EVENT_LOCATION, "Earth Mk2");
         values.put(Events.AVAILABILITY, 0);
+        values.put(Events.STATUS, Events.STATUS_CONFIRMED);
         values.put(Events.ACCESS_LEVEL, 3); // This is one more than the model if
                                           // >0
 

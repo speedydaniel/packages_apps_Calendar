@@ -18,25 +18,30 @@ package com.android.calendar;
 
 import static android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME;
 
-import com.android.calendar.CalendarController.ViewType;
-
 import android.app.Activity;
 import android.app.SearchManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.text.TextUtils;
+import android.text.format.DateFormat;
 import android.text.format.DateUtils;
 import android.text.format.Time;
 import android.util.Log;
 import android.widget.SearchView;
 
+import com.android.calendar.CalendarController.ViewType;
 import com.android.calendar.CalendarUtils.TimeZoneUtils;
 
 import java.util.ArrayList;
@@ -45,13 +50,18 @@ import java.util.Calendar;
 import java.util.Formatter;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.TimeZone;
 
 public class Utils {
     private static final boolean DEBUG = false;
     private static final String TAG = "CalUtils";
+
     // Set to 0 until we have UI to perform undo
     public static final long UNDO_DELAY = 0;
 
@@ -82,7 +92,8 @@ public class Utils {
     public static final int DECLINED_EVENT_ALPHA = 0x66;
     public static final int DECLINED_EVENT_TEXT_ALPHA = 0xC0;
 
-    private static final float SATURATION_ADJUST = 0.3f;
+    private static final float SATURATION_ADJUST = 1.3f;
+    private static final float INTENSITY_ADJUST = 0.8f;
 
     // Defines used by the DNA generation code
     static final int DAY_IN_MINUTES = 60 * 24;
@@ -99,9 +110,13 @@ public class Utils {
     // historical
     // reasons, as it's what PreferenceManager assigned the first time the file
     // was created.
-    private static final String SHARED_PREFS_NAME = "com.android.calendar_preferences";
+    static final String SHARED_PREFS_NAME = "com.android.calendar_preferences";
+
+    public static final String KEY_QUICK_RESPONSES = "preferences_quick_responses";
 
     public static final String APPWIDGET_DATA_TYPE = "vnd.android.data/update";
+
+    static final String MACHINE_GENERATED_ADDRESS = "calendar.google.com";
 
     private static final TimeZoneUtils mTZUtils = new TimeZoneUtils(SHARED_PREFS_NAME);
     private static boolean mAllowWeekForDetailView = false;
@@ -199,6 +214,16 @@ public class Utils {
         return mTZUtils.formatDateRange(context, startMillis, endMillis, flags);
     }
 
+    public static String[] getSharedPreference(Context context, String key, String[] defaultValue) {
+        SharedPreferences prefs = GeneralPreferences.getSharedPreferences(context);
+        Set<String> ss = prefs.getStringSet(key, null);
+        if (ss != null) {
+            String strings[] = new String[ss.size()];
+            return ss.toArray(strings);
+        }
+        return defaultValue;
+    }
+
     public static String getSharedPreference(Context context, String key, String defaultValue) {
         SharedPreferences prefs = GeneralPreferences.getSharedPreferences(context);
         return prefs.getString(key, defaultValue);
@@ -224,6 +249,15 @@ public class Utils {
     public static void setSharedPreference(Context context, String key, String value) {
         SharedPreferences prefs = GeneralPreferences.getSharedPreferences(context);
         prefs.edit().putString(key, value).apply();
+    }
+
+    public static void setSharedPreference(Context context, String key, String[] values) {
+        SharedPreferences prefs = GeneralPreferences.getSharedPreferences(context);
+        LinkedHashSet<String> set = new LinkedHashSet<String>();
+        for (int i = 0; i < values.length; i++) {
+            set.add(values[i]);
+        }
+        prefs.edit().putStringSet(key, set).apply();
     }
 
     protected static void tardis() {
@@ -277,7 +311,11 @@ public class Utils {
     }
 
     public static MatrixCursor matrixCursorFromCursor(Cursor cursor) {
-        MatrixCursor newCursor = new MatrixCursor(cursor.getColumnNames());
+        String[] columnNames = cursor.getColumnNames();
+        if (columnNames == null) {
+            columnNames = new String[] {};
+        }
+        MatrixCursor newCursor = new MatrixCursor(columnNames);
         int numColumns = cursor.getColumnCount();
         String data[] = new String[numColumns];
         cursor.moveToPosition(-1);
@@ -590,9 +628,12 @@ public class Utils {
     }
 
     public static int getDisplayColorFromColor(int color) {
+        // STOPSHIP - Finalize color adjustment algorithm before shipping
+
         float[] hsv = new float[3];
         Color.colorToHSV(color, hsv);
-        hsv[1] = Math.max(hsv[1] - SATURATION_ADJUST, 0.0f);
+        hsv[1] = Math.min(hsv[1] * SATURATION_ADJUST, 1.0f);
+        hsv[2] = hsv[2] * INTENSITY_ADJUST;
         return Color.HSVToColor(hsv);
     }
 
@@ -1109,5 +1150,341 @@ public class Utils {
         }
         dayViewText = dayViewText.toUpperCase();
         return dayViewText;
+    }
+
+    // Calculate the time until midnight + 1 second and set the handler to
+    // do run the runnable
+    public static void setMidnightUpdater(Handler h, Runnable r, String timezone) {
+        if (h == null || r == null || timezone == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        Time time = new Time(timezone);
+        time.set(now);
+        long runInMillis = (24 * 3600 - time.hour * 3600 - time.minute * 60 -
+                time.second + 1) * 1000;
+        h.removeCallbacks(r);
+        h.postDelayed(r, runInMillis);
+    }
+
+    // Stop the midnight update thread
+    public static void resetMidnightUpdater(Handler h, Runnable r) {
+        if (h == null || r == null) {
+            return;
+        }
+        h.removeCallbacks(r);
+    }
+
+    /**
+     * Returns a string description of the specified time interval.
+     */
+    public static String getDisplayedDatetime(long startMillis, long endMillis, long currentMillis,
+            String localTimezone, boolean allDay, Context context) {
+        // Configure date/time formatting.
+        int flagsDate = DateUtils.FORMAT_SHOW_DATE | DateUtils.FORMAT_SHOW_WEEKDAY;
+        int flagsTime = DateUtils.FORMAT_SHOW_TIME;
+        if (DateFormat.is24HourFormat(context)) {
+            flagsTime |= DateUtils.FORMAT_24HOUR;
+        }
+
+        Time currentTime = new Time(localTimezone);
+        currentTime.set(currentMillis);
+        Resources resources = context.getResources();
+        String datetimeString = null;
+        if (allDay) {
+            // All day events require special timezone adjustment.
+            long localStartMillis = convertAlldayUtcToLocal(null, startMillis, localTimezone);
+            long localEndMillis = convertAlldayUtcToLocal(null, endMillis, localTimezone);
+            if (singleDayEvent(localStartMillis, localEndMillis, currentTime.gmtoff)) {
+                // If possible, use "Today" or "Tomorrow" instead of a full date string.
+                int todayOrTomorrow = isTodayOrTomorrow(context.getResources(),
+                        localStartMillis, currentMillis, currentTime.gmtoff);
+                if (TODAY == todayOrTomorrow) {
+                    datetimeString = resources.getString(R.string.today);
+                } else if (TOMORROW == todayOrTomorrow) {
+                    datetimeString = resources.getString(R.string.tomorrow);
+                }
+            }
+            if (datetimeString == null) {
+                // For multi-day allday events or single-day all-day events that are not
+                // today or tomorrow, use framework formatter.
+                Formatter f = new Formatter(new StringBuilder(50), Locale.getDefault());
+                datetimeString = DateUtils.formatDateRange(context, f, startMillis,
+                        endMillis, flagsDate, Time.TIMEZONE_UTC).toString();
+            }
+        } else {
+            if (singleDayEvent(startMillis, endMillis, currentTime.gmtoff)) {
+                // Format the time.
+                String timeString = Utils.formatDateRange(context, startMillis, endMillis,
+                        flagsTime);
+
+                // If possible, use "Today" or "Tomorrow" instead of a full date string.
+                int todayOrTomorrow = isTodayOrTomorrow(context.getResources(), startMillis,
+                        currentMillis, currentTime.gmtoff);
+                if (TODAY == todayOrTomorrow) {
+                    // Example: "Today at 1:00pm - 2:00 pm"
+                    datetimeString = resources.getString(R.string.today_at_time_fmt,
+                            timeString);
+                } else if (TOMORROW == todayOrTomorrow) {
+                    // Example: "Tomorrow at 1:00pm - 2:00 pm"
+                    datetimeString = resources.getString(R.string.tomorrow_at_time_fmt,
+                            timeString);
+                } else {
+                    // Format the full date. Example: "Thursday, April 12, 1:00pm - 2:00pm"
+                    String dateString = Utils.formatDateRange(context, startMillis, endMillis,
+                            flagsDate);
+                    datetimeString = resources.getString(R.string.date_time_fmt, dateString,
+                            timeString);
+                }
+            } else {
+                // For multiday events, shorten day/month names.
+                // Example format: "Fri Apr 6, 5:00pm - Sun, Apr 8, 6:00pm"
+                int flagsDatetime = flagsDate | flagsTime | DateUtils.FORMAT_ABBREV_MONTH |
+                        DateUtils.FORMAT_ABBREV_WEEKDAY;
+                datetimeString = Utils.formatDateRange(context, startMillis, endMillis,
+                        flagsDatetime);
+            }
+        }
+        return datetimeString;
+    }
+
+    /**
+     * Returns the timezone to display in the event info, if the local timezone is different
+     * from the event timezone.  Otherwise returns null.
+     */
+    public static String getDisplayedTimezone(long startMillis, String localTimezone,
+            String eventTimezone) {
+        String tzDisplay = null;
+        if (!TextUtils.equals(localTimezone, eventTimezone)) {
+            // Figure out if this is in DST
+            TimeZone tz = TimeZone.getTimeZone(localTimezone);
+            if (tz == null || tz.getID().equals("GMT")) {
+                tzDisplay = localTimezone;
+            } else {
+                Time startTime = new Time(localTimezone);
+                startTime.set(startMillis);
+                tzDisplay = tz.getDisplayName(startTime.isDst != 0, TimeZone.SHORT);
+            }
+        }
+        return tzDisplay;
+    }
+
+    /**
+     * Returns whether the specified time interval is in a single day.
+     */
+    private static boolean singleDayEvent(long startMillis, long endMillis, long localGmtOffset) {
+        if (startMillis == endMillis) {
+            return true;
+        }
+
+        // An event ending at midnight should still be a single-day event, so check
+        // time end-1.
+        int startDay = Time.getJulianDay(startMillis, localGmtOffset);
+        int endDay = Time.getJulianDay(endMillis - 1, localGmtOffset);
+        return startDay == endDay;
+    }
+
+    // Using int constants as a return value instead of an enum to minimize resources.
+    private static final int TODAY = 1;
+    private static final int TOMORROW = 2;
+    private static final int NONE = 0;
+
+    /**
+     * Returns TODAY or TOMORROW if applicable.  Otherwise returns NONE.
+     */
+    private static int isTodayOrTomorrow(Resources r, long dayMillis,
+            long currentMillis, long localGmtOffset) {
+        int startDay = Time.getJulianDay(dayMillis, localGmtOffset);
+        int currentDay = Time.getJulianDay(currentMillis, localGmtOffset);
+
+        int days = startDay - currentDay;
+        if (days == 1) {
+            return TOMORROW;
+        } else if (days == 0) {
+            return TODAY;
+        } else {
+            return NONE;
+        }
+    }
+
+    /**
+     * Create an intent for emailing attendees of an event.
+     *
+     * @param resources The resources for translating strings.
+     * @param eventTitle The title of the event to use as the email subject.
+     * @param body The default text for the email body.
+     * @param toEmails The list of emails for the 'to' line.
+     * @param ccEmails The list of emails for the 'cc' line.
+     * @param ownerAccount The owner account to use as the email sender.
+     */
+    public static Intent createEmailAttendeesIntent(Resources resources, String eventTitle,
+            String body, List<String> toEmails, List<String> ccEmails, String ownerAccount) {
+        List<String> toList = toEmails;
+        List<String> ccList = ccEmails;
+        if (toEmails.size() <= 0) {
+            if (ccEmails.size() <= 0) {
+                // TODO: Return a SEND intent if no one to email to, to at least populate
+                // a draft email with the subject (and no recipients).
+                throw new IllegalArgumentException("Both toEmails and ccEmails are empty.");
+            }
+
+            // Email app does not work with no "to" recipient.  Move all 'cc' to 'to'
+            // in this case.
+            toList = ccEmails;
+            ccList = null;
+        }
+
+        // Use the event title as the email subject (prepended with 'Re: ').
+        String subject = null;
+        if (eventTitle != null) {
+            subject = resources.getString(R.string.email_subject_prefix) + eventTitle;
+        }
+
+        // Use the SENDTO intent with a 'mailto' URI, because using SEND will cause
+        // the picker to show apps like text messaging, which does not make sense
+        // for email addresses.  We put all data in the URI instead of using the extra
+        // Intent fields (ie. EXTRA_CC, etc) because some email apps might not handle
+        // those (though gmail does).
+        Uri.Builder uriBuilder = new Uri.Builder();
+        uriBuilder.scheme("mailto");
+
+        // We will append the first email to the 'mailto' field later (because the
+        // current state of the Email app requires it).  Add the remaining 'to' values
+        // here.  When the email codebase is updated, we can simplify this.
+        if (toList.size() > 1) {
+            for (int i = 1; i < toList.size(); i++) {
+                // The Email app requires repeated parameter settings instead of
+                // a single comma-separated list.
+                uriBuilder.appendQueryParameter("to", toList.get(i));
+            }
+        }
+
+        // Add the subject parameter.
+        if (subject != null) {
+            uriBuilder.appendQueryParameter("subject", subject);
+        }
+
+        // Add the subject parameter.
+        if (body != null) {
+            uriBuilder.appendQueryParameter("body", body);
+        }
+
+        // Add the cc parameters.
+        if (ccList != null && ccList.size() > 0) {
+            for (String email : ccList) {
+                uriBuilder.appendQueryParameter("cc", email);
+            }
+        }
+
+        // Insert the first email after 'mailto:' in the URI manually since Uri.Builder
+        // doesn't seem to have a way to do this.
+        String uri = uriBuilder.toString();
+        if (uri.startsWith("mailto:")) {
+            StringBuilder builder = new StringBuilder(uri);
+            builder.insert(7, Uri.encode(toList.get(0)));
+            uri = builder.toString();
+        }
+
+        // Start the email intent.  Email from the account of the calendar owner in case there
+        // are multiple email accounts.
+        Intent emailIntent = new Intent(android.content.Intent.ACTION_SENDTO, Uri.parse(uri));
+        emailIntent.putExtra("fromAccountString", ownerAccount);
+        return Intent.createChooser(emailIntent, resources.getString(R.string.email_picker_label));
+    }
+
+    /**
+     * Example fake email addresses used as attendee emails are resources like conference rooms,
+     * or another calendar, etc.  These all end in "calendar.google.com".
+     */
+    public static boolean isValidEmail(String email) {
+        return email != null && !email.endsWith(MACHINE_GENERATED_ADDRESS);
+    }
+
+    /**
+     * Returns true if:
+     *   (1) the email is not a resource like a conference room or another calendar.
+     *       Catch most of these by filtering out suffix calendar.google.com.
+     *   (2) the email is not equal to the sync account to prevent mailing himself.
+     */
+    public static boolean isEmailableFrom(String email, String syncAccountName) {
+        return Utils.isValidEmail(email) && !email.equals(syncAccountName);
+    }
+
+    /**
+     * Inserts a drawable with today's day into the today's icon in the option menu
+     * @param icon - today's icon from the options menu
+     */
+    public static void setTodayIcon(LayerDrawable icon, Context c, String timezone) {
+        DayOfMonthDrawable today;
+
+        // Reuse current drawable if possible
+        Drawable currentDrawable = icon.findDrawableByLayerId(R.id.today_icon_day);
+        if (currentDrawable != null && currentDrawable instanceof DayOfMonthDrawable) {
+            today = (DayOfMonthDrawable)currentDrawable;
+        } else {
+            today = new DayOfMonthDrawable(c);
+        }
+        // Set the day and update the icon
+        Time now =  new Time(timezone);
+        now.setToNow();
+        now.normalize(false);
+        today.setDayOfMonth(now.monthDay);
+        icon.mutate();
+        icon.setDrawableByLayerId(R.id.today_icon_day, today);
+    }
+
+    private static class CalendarBroadcastReceiver extends BroadcastReceiver {
+
+        Runnable mCallBack;
+
+        public CalendarBroadcastReceiver(Runnable callback) {
+            super();
+            mCallBack = callback;
+        }
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction().equals(Intent.ACTION_DATE_CHANGED) ||
+                    intent.getAction().equals(Intent.ACTION_TIME_CHANGED) ||
+                    intent.getAction().equals(Intent.ACTION_LOCALE_CHANGED) ||
+                    intent.getAction().equals(Intent.ACTION_TIMEZONE_CHANGED)) {
+                if (mCallBack != null) {
+                    mCallBack.run();
+                }
+            }
+        }
+    }
+
+    public static BroadcastReceiver setTimeChangesReceiver(Context c, Runnable callback) {
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_TIME_CHANGED);
+        filter.addAction(Intent.ACTION_DATE_CHANGED);
+        filter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
+        filter.addAction(Intent.ACTION_LOCALE_CHANGED);
+
+        CalendarBroadcastReceiver r = new CalendarBroadcastReceiver(callback);
+        c.registerReceiver(r, filter);
+        return r;
+    }
+
+    public static void clearTimeChangesReceiver(Context c, BroadcastReceiver r) {
+        c.unregisterReceiver(r);
+    }
+
+    /**
+     * Get a list of quick responses used for emailing guests from the
+     * SharedPreferences. If not are found, get the hard coded ones that shipped
+     * with the app
+     *
+     * @param context
+     * @return a list of quick responses.
+     */
+    public static String[] getQuickResponses(Context context) {
+        String[] s = Utils.getSharedPreference(context, KEY_QUICK_RESPONSES, (String[]) null);
+
+        if (s == null) {
+            s = context.getResources().getStringArray(R.array.quick_response_defaults);
+        }
+
+        return s;
     }
 }

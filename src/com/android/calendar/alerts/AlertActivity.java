@@ -16,22 +16,14 @@
 
 package com.android.calendar.alerts;
 
-import com.android.calendar.AllInOneActivity;
-import com.android.calendar.AsyncQueryService;
-import com.android.calendar.R;
-import com.android.calendar.Utils;
-
 import android.app.Activity;
-import android.app.AlarmManager;
 import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.content.ContentUris;
+import android.app.TaskStackBuilder;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
-import android.net.Uri.Builder;
 import android.os.Bundle;
 import android.provider.CalendarContract;
 import android.provider.CalendarContract.CalendarAlerts;
@@ -43,15 +35,17 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.Button;
 import android.widget.ListView;
 
+import com.android.calendar.AsyncQueryService;
+import com.android.calendar.EventInfoActivity;
+import com.android.calendar.R;
+import com.android.calendar.Utils;
+
 /**
  * The alert panel that pops up when there is a calendar event alarm.
  * This activity is started by an intent that specifies an event id.
   */
 public class AlertActivity extends Activity implements OnClickListener {
     private static final String TAG = "AlertActivity";
-
-    // The default snooze delay: 5 minutes
-    public static final long SNOOZE_DELAY = 5 * 60 * 1000L;
 
     private static final String[] PROJECTION = new String[] {
         CalendarAlerts._ID,              // 0
@@ -61,7 +55,7 @@ public class AlertActivity extends Activity implements OnClickListener {
         CalendarAlerts.BEGIN,            // 4
         CalendarAlerts.END,              // 5
         CalendarAlerts.EVENT_ID,         // 6
-        CalendarAlerts.CALENDAR_COLOR,            // 7
+        CalendarAlerts.CALENDAR_COLOR,   // 7
         CalendarAlerts.RRULE,            // 8
         CalendarAlerts.HAS_ALARM,        // 9
         CalendarAlerts.STATE,            // 10
@@ -86,16 +80,10 @@ public class AlertActivity extends Activity implements OnClickListener {
         Integer.toString(CalendarAlerts.STATE_FIRED)
     };
 
-    // We use one notification id for all events so that we don't clutter
-    // the notification screen.  It doesn't matter what the id is, as long
-    // as it is used consistently everywhere.
-    public static final int NOTIFICATION_ID = 0;
-
     private AlertAdapter mAdapter;
     private QueryHandler mQueryHandler;
     private Cursor mCursor;
     private ListView mListView;
-    private Button mSnoozeAllButton;
     private Button mDismissAllButton;
 
 
@@ -129,7 +117,6 @@ public class AlertActivity extends Activity implements OnClickListener {
                 mListView.setSelection(cursor.getCount() - 1);
 
                 // The results are in, enable the buttons
-                mSnoozeAllButton.setEnabled(true);
                 mDismissAllButton.setEnabled(true);
             } else {
                 cursor.close();
@@ -145,9 +132,7 @@ public class AlertActivity extends Activity implements OnClickListener {
                     // Set a new alarm to go off after the snooze delay.
                     // TODO make provider schedule this automatically when
                     // inserting an alarm
-                    AlarmManager alarmManager =
-                            (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-                    scheduleAlarm(AlertActivity.this, alarmManager, alarmTime);
+                    AlertUtils.scheduleAlarm(AlertActivity.this, null, alarmTime);
                 }
             }
         }
@@ -158,48 +143,11 @@ public class AlertActivity extends Activity implements OnClickListener {
         }
     }
 
-    /**
-     * Schedules an alarm intent with the system AlarmManager that will notify
-     * listeners when a reminder should be fired. The provider will keep
-     * scheduled reminders up to date but apps may use this to implement snooze
-     * functionality without modifying the reminders table. Scheduled alarms
-     * will generate an intent using {@link #ACTION_EVENT_REMINDER}.
-     *
-     * @param context A context for referencing system resources
-     * @param manager The AlarmManager to use or null
-     * @param alarmTime The time to fire the intent in UTC millis since epoch
-     */
-    public static void scheduleAlarm(Context context, AlarmManager manager, long alarmTime) {
 
-        if (manager == null) {
-            manager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        }
 
-        Intent intent = new Intent(CalendarContract.ACTION_EVENT_REMINDER);
-        intent.setData(ContentUris.withAppendedId(CalendarContract.CONTENT_URI, alarmTime));
-        intent.putExtra(CalendarContract.CalendarAlerts.ALARM_TIME, alarmTime);
-        PendingIntent pi = PendingIntent.getBroadcast(context, 0, intent, 0);
-        manager.set(AlarmManager.RTC_WAKEUP, alarmTime, pi);
-    }
+    private final OnItemClickListener mViewListener = new OnItemClickListener() {
 
-    private static ContentValues makeContentValues(long eventId, long begin, long end,
-            long alarmTime, int minutes) {
-        ContentValues values = new ContentValues();
-        values.put(CalendarAlerts.EVENT_ID, eventId);
-        values.put(CalendarAlerts.BEGIN, begin);
-        values.put(CalendarAlerts.END, end);
-        values.put(CalendarAlerts.ALARM_TIME, alarmTime);
-        long currentTime = System.currentTimeMillis();
-        values.put(CalendarAlerts.CREATION_TIME, currentTime);
-        values.put(CalendarAlerts.RECEIVED_TIME, 0);
-        values.put(CalendarAlerts.NOTIFY_TIME, 0);
-        values.put(CalendarAlerts.STATE, CalendarAlerts.STATE_SCHEDULED);
-        values.put(CalendarAlerts.MINUTES, minutes);
-        return values;
-    }
-
-    private OnItemClickListener mViewListener = new OnItemClickListener() {
-
+        @Override
         public void onItemClick(AdapterView<?> parent, View view, int position,
                 long i) {
             AlertActivity alertActivity = AlertActivity.this;
@@ -208,17 +156,17 @@ public class AlertActivity extends Activity implements OnClickListener {
             // Mark this alarm as DISMISSED
             dismissAlarm(cursor.getLong(INDEX_ROW_ID));
 
+            // build an intent and task stack to start EventInfoActivity with AllInOneActivity
+            // as the parent activity rooted to home.
             long id = cursor.getInt(AlertActivity.INDEX_EVENT_ID);
             long startMillis = cursor.getLong(AlertActivity.INDEX_BEGIN);
             long endMillis = cursor.getLong(AlertActivity.INDEX_END);
-            Intent eventIntent = new Intent(Intent.ACTION_VIEW);
-            Builder builder = CalendarContract.CONTENT_URI.buildUpon();
-            builder.appendEncodedPath("events/" + id);
-            eventIntent.setData(builder.build());
-            eventIntent.setClass(AlertActivity.this, AllInOneActivity.class);
-            eventIntent.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startMillis);
-            eventIntent.putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endMillis);
-            alertActivity.startActivity(eventIntent);
+            Intent eventIntent = AlertUtils.buildEventViewIntent(AlertActivity.this, id,
+                    startMillis, endMillis);
+
+            TaskStackBuilder.create(AlertActivity.this)
+                    .addParentStack(EventInfoActivity.class).addNextIntent(eventIntent)
+                    .startActivities();
 
             alertActivity.finish();
         }
@@ -239,13 +187,10 @@ public class AlertActivity extends Activity implements OnClickListener {
         mListView.setAdapter(mAdapter);
         mListView.setOnItemClickListener(mViewListener);
 
-        mSnoozeAllButton = (Button) findViewById(R.id.snooze_all);
-        mSnoozeAllButton.setOnClickListener(this);
         mDismissAllButton = (Button) findViewById(R.id.dismiss_all);
         mDismissAllButton.setOnClickListener(this);
 
         // Disable the buttons, since they need mCursor, which is created asynchronously
-        mSnoozeAllButton.setEnabled(false);
         mDismissAllButton.setEnabled(false);
     }
 
@@ -256,8 +201,8 @@ public class AlertActivity extends Activity implements OnClickListener {
         // If the cursor is null, start the async handler. If it is not null just requery.
         if (mCursor == null) {
             Uri uri = CalendarAlerts.CONTENT_URI_BY_INSTANCE;
-            mQueryHandler.startQuery(0, null, uri, PROJECTION, SELECTION,
-                    SELECTIONARG, CalendarAlerts.DEFAULT_SORT_ORDER);
+            mQueryHandler.startQuery(0, null, uri, PROJECTION, SELECTION, SELECTIONARG,
+                    CalendarContract.CalendarAlerts.DEFAULT_SORT_ORDER);
         } else {
             if (!mCursor.requery()) {
                 Log.w(TAG, "Cursor#requery() failed.");
@@ -287,45 +232,10 @@ public class AlertActivity extends Activity implements OnClickListener {
 
     @Override
     public void onClick(View v) {
-        if (v == mSnoozeAllButton) {
-            long alarmTime = System.currentTimeMillis() + SNOOZE_DELAY;
-
+        if (v == mDismissAllButton) {
             NotificationManager nm =
                 (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            nm.cancel(NOTIFICATION_ID);
-
-            if (mCursor != null) {
-                long scheduleAlarmTime = 0;
-                mCursor.moveToPosition(-1);
-                while (mCursor.moveToNext()) {
-                    long eventId = mCursor.getLong(INDEX_EVENT_ID);
-                    long begin = mCursor.getLong(INDEX_BEGIN);
-                    long end = mCursor.getLong(INDEX_END);
-
-                    // Set the "minutes" to zero to indicate this is a snoozed
-                    // alarm.  There is code in AlertService.java that checks
-                    // this field.
-                    ContentValues values =
-                            makeContentValues(eventId, begin, end, alarmTime, 0 /* minutes */);
-
-                    // Create a new alarm entry in the CalendarAlerts table
-                    if (mCursor.isLast()) {
-                        scheduleAlarmTime = alarmTime;
-                    }
-                    mQueryHandler.startInsert(0,
-                            scheduleAlarmTime, CalendarAlerts.CONTENT_URI, values,
-                            Utils.UNDO_DELAY);
-                }
-            } else {
-                Log.d(TAG, "Cursor object is null. Ignore the Snooze request.");
-            }
-
-            dismissFiredAlarms();
-            finish();
-        } else if (v == mDismissAllButton) {
-            NotificationManager nm =
-                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            nm.cancel(NOTIFICATION_ID);
+            nm.cancelAll();
 
             dismissFiredAlarms();
 

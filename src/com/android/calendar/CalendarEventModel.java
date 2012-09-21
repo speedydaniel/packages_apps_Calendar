@@ -76,16 +76,19 @@ public class CalendarEventModel implements Serializable {
         public String mName;
         public String mEmail;
         public int mStatus;
+        public String mIdentity;
+        public String mIdNamespace;
 
         public Attendee(String name, String email) {
-            mName = name;
-            mEmail = email;
-            mStatus = Attendees.ATTENDEE_STATUS_NONE;
+            this(name, email, Attendees.ATTENDEE_STATUS_NONE, null, null);
         }
-        public Attendee(String name, String email, int status) {
+        public Attendee(String name, String email, int status, String identity,
+                String idNamespace) {
             mName = name;
             mEmail = email;
             mStatus = status;
+            mIdentity = identity;
+            mIdNamespace = idNamespace;
         }
     }
 
@@ -252,6 +255,8 @@ public class CalendarEventModel implements Serializable {
     public boolean mOrganizerCanRespond = false;
     public int mCalendarAccessLevel = Calendars.CAL_ACCESS_CONTRIBUTOR;
 
+    public int mEventStatus = Events.STATUS_CONFIRMED;
+
     // The model can't be updated with a calendar cursor until it has been
     // updated with an event cursor.
     public boolean mModelUpdatedWithEventCursor;
@@ -411,6 +416,7 @@ public class CalendarEventModel implements Serializable {
         mGuestsCanInviteOthers = false;
         mGuestsCanSeeGuests = false;
         mAccessLevel = 0;
+        mEventStatus = Events.STATUS_CONFIRMED;
         mOrganizerCanRespond = false;
         mCalendarAccessLevel = Calendars.CAL_ACCESS_CONTRIBUTOR;
         mModelUpdatedWithEventCursor = false;
@@ -501,6 +507,7 @@ public class CalendarEventModel implements Serializable {
         result = prime * result + (mAvailability);
         result = prime * result + ((mUri == null) ? 0 : mUri.hashCode());
         result = prime * result + mAccessLevel;
+        result = prime * result + mEventStatus;
         return result;
     }
 
@@ -829,6 +836,10 @@ public class CalendarEventModel implements Serializable {
         }
 
         if (mAccessLevel != originalModel.mAccessLevel) {
+            return false;
+        }
+
+        if (mEventStatus != originalModel.mEventStatus) {
             return false;
         }
         return true;

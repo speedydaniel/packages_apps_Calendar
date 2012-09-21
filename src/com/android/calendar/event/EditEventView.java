@@ -16,26 +16,6 @@
 
 package com.android.calendar.event;
 
-import com.android.calendar.CalendarEventModel;
-import com.android.calendar.CalendarEventModel.Attendee;
-import com.android.calendar.CalendarEventModel.ReminderEntry;
-import com.android.calendar.EmailAddressAdapter;
-import com.android.calendar.EventInfoFragment;
-import com.android.calendar.GeneralPreferences;
-import com.android.calendar.R;
-import com.android.calendar.RecipientAdapter;
-import com.android.calendar.TimezoneAdapter;
-import com.android.calendar.TimezoneAdapter.TimezoneRow;
-import com.android.calendar.Utils;
-import com.android.calendar.event.EditEventHelper.EditDoneRunnable;
-import com.android.calendarcommon.EventRecurrence;
-import com.android.common.Rfc822InputFilter;
-import com.android.common.Rfc822Validator;
-import com.android.ex.chips.AccountSpecifier;
-import com.android.ex.chips.BaseRecipientAdapter;
-import com.android.ex.chips.ChipsUtil;
-import com.android.ex.chips.RecipientEditTextView;
-
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
@@ -50,11 +30,10 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.database.Cursor;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.drawable.Drawable;
 import android.provider.CalendarContract.Attendees;
 import android.provider.CalendarContract.Calendars;
+import android.provider.CalendarContract.Events;
 import android.provider.CalendarContract.Reminders;
 import android.provider.Settings;
 import android.text.InputFilter;
@@ -86,6 +65,26 @@ import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.TimePicker;
+
+import com.android.calendar.CalendarEventModel;
+import com.android.calendar.CalendarEventModel.Attendee;
+import com.android.calendar.CalendarEventModel.ReminderEntry;
+import com.android.calendar.EmailAddressAdapter;
+import com.android.calendar.EventInfoFragment;
+import com.android.calendar.GeneralPreferences;
+import com.android.calendar.R;
+import com.android.calendar.RecipientAdapter;
+import com.android.calendar.TimezoneAdapter;
+import com.android.calendar.TimezoneAdapter.TimezoneRow;
+import com.android.calendar.Utils;
+import com.android.calendar.event.EditEventHelper.EditDoneRunnable;
+import com.android.calendarcommon.EventRecurrence;
+import com.android.common.Rfc822InputFilter;
+import com.android.common.Rfc822Validator;
+import com.android.ex.chips.AccountSpecifier;
+import com.android.ex.chips.BaseRecipientAdapter;
+import com.android.ex.chips.ChipsUtil;
+import com.android.ex.chips.RecipientEditTextView;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -232,6 +231,9 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
                 // Also update the end time to keep the duration constant.
                 endTime.hour = hourOfDay + hourDuration;
                 endTime.minute = minute + minuteDuration;
+
+                // Update tz in case the start time switched from/to DLS
+                populateTimezone(startMillis);
             } else {
                 // The end time was changed.
                 startMillis = startTime.toMillis(true);
@@ -243,6 +245,7 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
                 if (endTime.before(startTime)) {
                     endTime.monthDay = startTime.monthDay + 1;
                 }
+                // Call populateTimezone if we support end time zone as well
             }
 
             endMillis = endTime.normalize(true);
@@ -308,6 +311,9 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
 
                 // If the start date has changed then update the repeats.
                 populateRepeats();
+
+                // Update tz in case the start time switched from/to DLS
+                populateTimezone(startMillis);
             } else {
                 // The end date was changed.
                 startMillis = startTime.toMillis(true);
@@ -322,6 +328,7 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
                     endTime.set(startTime);
                     endMillis = startMillis;
                 }
+                // Call populateTimezone if we support end time zone as well
             }
 
             setDate(mStartDateButton, startMillis);
@@ -349,7 +356,17 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
         mEndTimeButton.setOnClickListener(new TimeClickListener(mEndTime));
     }
 
-    private void populateTimezone() {
+    private void populateTimezone(long eventStartTime) {
+        if (mTimezoneAdapter == null) {
+            mTimezoneAdapter = new TimezoneAdapter(mActivity, mTimezone, eventStartTime);
+        } else {
+            mTimezoneAdapter.setTime(eventStartTime);
+        }
+
+        if (mTimezoneDialog != null) {
+            mTimezoneDialog.getListView().setAdapter(mTimezoneAdapter);
+        }
+
         mTimezoneButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -362,7 +379,6 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
     private void showTimezoneDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(mActivity);
         final Context alertDialogContext = builder.getContext();
-        mTimezoneAdapter = new TimezoneAdapter(alertDialogContext, mTimezone);
         builder.setTitle(R.string.timezone_label);
         builder.setSingleChoiceItems(
                 mTimezoneAdapter, mTimezoneAdapter.getRowById(mTimezone), this);
@@ -656,6 +672,7 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
         parent.removeView(reminderItem);
         mReminderItems.remove(reminderItem);
         updateRemindersVisibility(mReminderItems.size());
+        EventViewUtils.updateAddReminderButton(mView, mReminderItems, mModel.mCalendarMaxReminders);
     }
 
     // This is called if the user cancels the "No calendars" dialog.
@@ -882,7 +899,6 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
         mIsMultipane = activity.getResources().getBoolean(R.bool.tablet_config);
         mStartTime = new Time(mTimezone);
         mEndTime = new Time(mTimezone);
-        mTimezoneAdapter = new TimezoneAdapter(mActivity, mTimezone);
         mEmailValidator = new Rfc822Validator(null);
         initMultiAutoCompleteTextView((RecipientEditTextView) mAttendeesList);
 
@@ -990,6 +1006,7 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
         }
 
         updateRemindersVisibility(numReminders);
+        EventViewUtils.updateAddReminderButton(mView, mReminderItems, mModel.mCalendarMaxReminders);
     }
 
     /**
@@ -1056,9 +1073,8 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
         if (model.mAllDay) {
             mAllDayCheckBox.setChecked(true);
             // put things back in local time for all day events
-            mTimezone = TimeZone.getDefault().getID();
+            mTimezone = Utils.getTimeZone(mActivity, null);
             mStartTime.timezone = mTimezone;
-            mStartTime.normalize(true);
             mEndTime.timezone = mTimezone;
             mEndTime.normalize(true);
         } else {
@@ -1070,10 +1086,7 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
             setAllDayViewsVisibility(prevAllDay);
         }
 
-        mTimezoneAdapter = new TimezoneAdapter(mActivity, mTimezone);
-        if (mTimezoneDialog != null) {
-            mTimezoneDialog.getListView().setAdapter(mTimezoneAdapter);
-        }
+        populateTimezone(mStartTime.normalize(true));
 
         SharedPreferences prefs = GeneralPreferences.getSharedPreferences(mActivity);
         String defaultReminderString = prefs.getString(
@@ -1164,7 +1177,6 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
             calendarGroup.setVisibility(View.GONE);
         }
 
-        populateTimezone();
         populateWhen();
         populateRepeats();
         updateAttendees(model.mAttendeesList);
@@ -1338,7 +1350,6 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
             mCalendarStaticGroup.setVisibility(View.VISIBLE);
             mRepeatsSpinner.setEnabled(false);
             mRepeatsSpinner.setBackgroundDrawable(null);
-            setAllDayViewsVisibility(mAllDayCheckBox.isChecked());
             if (EditEventHelper.canAddReminders(mModel)) {
                 mRemindersGroup.setVisibility(View.VISIBLE);
             } else {
@@ -1385,6 +1396,7 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
             mLocationGroup.setVisibility(View.VISIBLE);
             mDescriptionGroup.setVisibility(View.VISIBLE);
         }
+        setAllDayViewsVisibility(mAllDayCheckBox.isChecked());
     }
 
     public void setModification(int modifyWhich) {
@@ -1401,7 +1413,7 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
         }
 
         String defaultCalendar = Utils.getSharedPreference(
-                mActivity, GeneralPreferences.KEY_DEFAULT_CALENDAR, null);
+                mActivity, GeneralPreferences.KEY_DEFAULT_CALENDAR, (String) null);
 
         if (defaultCalendar == null) {
             return 0;
@@ -1457,6 +1469,7 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
                     mModel.mCalendarMaxReminders, null);
         }
         updateRemindersVisibility(mReminderItems.size());
+        EventViewUtils.updateAddReminderButton(mView, mReminderItems, mModel.mCalendarMaxReminders);
     }
 
     // From com.google.android.gm.ComposeActivity
@@ -1465,20 +1478,6 @@ public class EditEventView implements View.OnClickListener, DialogInterface.OnCa
             mAddressAdapter = new RecipientAdapter(mActivity);
             list.setAdapter((BaseRecipientAdapter) mAddressAdapter);
             list.setOnFocusListShrinkRecipients(false);
-            Resources r = mActivity.getResources();
-            Bitmap def = BitmapFactory.decodeResource(r, R.drawable.ic_contact_picture);
-            list.setChipDimensions(
-                    r.getDrawable(R.drawable.chip_background),
-                    r.getDrawable(R.drawable.chip_background_selected),
-                    r.getDrawable(R.drawable.chip_background_invalid),
-                    r.getDrawable(R.drawable.chip_delete),
-                    def,
-                    R.layout.more_item,
-                    R.layout.chips_alternate_item,
-                    r.getDimension(R.dimen.chip_height),
-                    r.getDimension(R.dimen.chip_padding),
-                    r.getDimension(R.dimen.chip_text_size),
-                    R.layout.copy_chip_dialog_layout);
         } else {
             mAddressAdapter = new EmailAddressAdapter(mActivity);
             list.setAdapter((EmailAddressAdapter)mAddressAdapter);

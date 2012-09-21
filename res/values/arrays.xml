@@ -22,6 +22,7 @@
         <item>Notification</item>
         <item>Email</item>
         <item>SMS</item>
+        <item>Alarm</item>
     </string-array>
 
     <!-- This maps reminder_methods_labels to internal constants. -->
@@ -29,6 +30,7 @@
         <item>1</item>  <!-- METHOD_ALERT -->
         <item>2</item>  <!-- METHOD_EMAIL -->
         <item>3</item>  <!-- METHOD_SMS -->
+        <item>4</item>  <!-- METHOD_ALARM -->
     </integer-array>
 
     <!-- Choices for the "Reminder minutes" spinner.
@@ -135,8 +137,9 @@
     </string-array>
 
     <!-- Choices for timezones, must be kept in sync with timezone_values. This
-         list was taken from package/apps/Settings/res/xml/timezones.xml
-         [CHAR LIMIT=20] -->
+         list was taken from packages/apps/Settings/res/xml/timezones.xml
+         sed -e 's/^.*">/        <item>"/;s,</.*$,"</item>,' packages/apps/Settings/res/xml/timezones.xml
+         [CHAR LIMIT=25] -->
     <string-array name="timezone_labels">
         <item>"Marshall Islands"</item>
         <item>"Midway Island"</item>
@@ -154,7 +157,8 @@
         <item>"Bogota"</item>
         <item>"Eastern Time"</item>
         <item>"Venezuela"</item>
-        <item>"Atlantic Time"</item>
+        <item>"Atlantic Time (Barbados)"</item>
+        <item>"Atlantic Time (Canada)"</item>
         <item>"Manaus"</item>
         <item>"Santiago"</item>
         <item>"Newfoundland"</item>
@@ -223,7 +227,9 @@
         <item>"Tonga"</item>
     </string-array>
 
-    <!-- This list was taken from package/apps/Settings/res/xml/timezones.xml -->
+    <!-- Choices for timezones, must be kept in sync with timezone_values. This
+         list was taken from packages/apps/Settings/res/xml/timezones.xml
+         sed -e 's/^.*=/        <item>/;s,">.*$,"</item>,' packages/apps/Settings/res/xml/timezones.xml -->
     <string-array name="timezone_values" translatable="false">
         <item>"Pacific/Majuro"</item>
         <item>"Pacific/Midway"</item>
@@ -242,6 +248,7 @@
         <item>"America/New_York"</item>
         <item>"America/Caracas"</item>
         <item>"America/Barbados"</item>
+        <item>"America/Halifax"</item>
         <item>"America/Manaus"</item>
         <item>"America/Santiago"</item>
         <item>"America/St_Johns"</item>

@@ -16,8 +16,6 @@
 
 package com.android.calendar;
 
-import com.android.calendar.alerts.AlertReceiver;
-
 import android.app.Activity;
 import android.app.backup.BackupManager;
 import android.content.Context;
@@ -41,6 +39,8 @@ import android.provider.SearchRecentSuggestions;
 import android.text.TextUtils;
 import android.widget.Toast;
 
+import com.android.calendar.alerts.AlertReceiver;
+
 public class GeneralPreferences extends PreferenceFragment implements
         OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
     // The name of the shared preferences file. This name must be maintained for historical
@@ -62,6 +62,8 @@ public class GeneralPreferences extends PreferenceFragment implements
     public static final String KEY_ALERTS_VIBRATE_WHEN = "preferences_alerts_vibrateWhen";
     public static final String KEY_ALERTS_RINGTONE = "preferences_alerts_ringtone";
     public static final String KEY_ALERTS_POPUP = "preferences_alerts_popup";
+
+    public static final String KEY_SHOW_CONTROLS = "preferences_show_controls";
 
     public static final String KEY_DEFAULT_REMINDER = "preferences_default_reminder";
     public static final int NO_REMINDER = -1;
@@ -161,7 +163,8 @@ public class GeneralPreferences extends PreferenceFragment implements
         mDefaultReminder.setSummary(mDefaultReminder.getEntry());
 
         if (mTimezones == null) {
-            mTimezones = (new TimezoneAdapter(activity, tz)).getAllTimezones();
+            mTimezones = (new TimezoneAdapter(activity, tz, System.currentTimeMillis()))
+                    .getAllTimezones();
         }
         mHomeTZ.setEntryValues(mTimezones[0]);
         mHomeTZ.setEntries(mTimezones[1]);
@@ -332,7 +335,7 @@ public class GeneralPreferences extends PreferenceFragment implements
     public boolean onPreferenceTreeClick(
             PreferenceScreen preferenceScreen, Preference preference) {
         final String key = preference.getKey();
-        if (key.equals(KEY_CLEAR_SEARCH_HISTORY)) {
+        if (KEY_CLEAR_SEARCH_HISTORY.equals(key)) {
             SearchRecentSuggestions suggestions = new SearchRecentSuggestions(getActivity(),
                     Utils.getSearchAuthority(getActivity()),
                     CalendarRecentSuggestionsProvider.MODE);
@@ -340,8 +343,9 @@ public class GeneralPreferences extends PreferenceFragment implements
             Toast.makeText(getActivity(), R.string.search_history_cleared,
                     Toast.LENGTH_SHORT).show();
             return true;
+        } else {
+            return super.onPreferenceTreeClick(preferenceScreen, preference);
         }
-        return false;
     }
 
 }

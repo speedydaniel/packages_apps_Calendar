@@ -22,6 +22,11 @@
     <string name="when_label" msgid="894636567327261599">"Kedy"</string>
     <string name="timezone_label" msgid="3988530993300431650">"Časové pásmo"</string>
     <string name="attendees_label" msgid="2971281641565729725">"Hostia"</string>
+    <string name="today" msgid="8577375020252453006">"Dnes"</string>
+    <string name="tomorrow" msgid="614434811813859237">"Zajtra"</string>
+    <string name="today_at_time_fmt" msgid="1981279213130049736">"Dnes o <xliff:g id="TIME_INTERVAL">%s</xliff:g>"</string>
+    <string name="tomorrow_at_time_fmt" msgid="1330779112841767432">"Zajtra o <xliff:g id="TIME_INTERVAL">%s</xliff:g>"</string>
+    <string name="date_time_fmt" msgid="1642972650061946484">"<xliff:g id="DATE">%s</xliff:g>, <xliff:g id="TIME_INTERVAL">%s</xliff:g>"</string>
     <string name="repeats_label" msgid="7414023871434593196">"Opakovanie"</string>
     <string name="no_title_label" msgid="302177118061368042">"(Bez názvu)"</string>
   <plurals name="Nminutes">
@@ -73,8 +78,8 @@
     <string name="creating_event" msgid="7516249252554059980">"Udalosť bola vytvorená."</string>
     <string name="saving_event" msgid="7694181017411177226">"Udalosť bola uložená."</string>
     <string name="empty_event" msgid="9018699257414338634">"Prázdna udal. nebola vytvor."</string>
-    <string name="creating_event_with_guest" msgid="8535098983005383300">"Pozvánky boli odoslané."</string>
-    <string name="saving_event_with_guest" msgid="8678551213800311856">"Aktualizácie boli odoslané."</string>
+    <string name="creating_event_with_guest" msgid="5758688413124191931">"Pozvánky budú odoslané."</string>
+    <string name="saving_event_with_guest" msgid="9184584438475689577">"Aktualizácie budú odoslané."</string>
     <string name="alert_title" msgid="7869592820853066853">"Upozornenia v kalendári"</string>
     <string name="event_info_title" msgid="56024222340421620">"Zobraziť udalosť"</string>
     <string name="event_info_title_invite" msgid="9160326363769403865">"Pozvánka na stretnutie"</string>
@@ -97,9 +102,22 @@
     <string name="response_yes" msgid="2027484304899988350">"Áno"</string>
     <string name="response_maybe" msgid="7791500973627841695">"Možno"</string>
     <string name="response_no" msgid="561911691884148136">"Nie"</string>
+    <string name="email_guests_label" msgid="8772030932155305903">"Odoslať hosťom e-mail"</string>
+    <string name="email_picker_label" msgid="4808253965057791781">"Poslať e-mail"</string>
+    <string name="quick_response_settings" msgid="6776151690686068278">"Rýchle odpovede"</string>
+    <string name="quick_response_settings_summary" msgid="7878304729027355604">"Upraviť predv. odp."</string>
+    <string name="quick_response_settings_title" msgid="8966517107774567031">"Upraviť rýchle odp."</string>
+    <string name="quick_response_settings_edit_title" msgid="6260055523174081930">"Rýchla odpoveď"</string>
+    <string name="quick_response_dialog_title" msgid="2681309456412199207">"Vyberte rýchlu odpoveď"</string>
+    <string name="quick_response_email_failed" msgid="5544066405231853245">"E-mailový program sa nepodarilo nájsť"</string>
+  <string-array name="quick_response_defaults">
+    <item msgid="1524421198348168403">"Budem pár minút meškať."</item>
+    <item msgid="6215158751728689832">"Budem tam o 10 minút."</item>
+    <item msgid="4485794001743679338">"Začnite bezo mňa."</item>
+    <item msgid="8036557974294987511">"Je mi ľúto, ale nestíham. Naplánujeme to na inokedy."</item>
+  </string-array>
+    <string name="quick_response_custom_msg" msgid="7265035125070482285">"Vlastná správa..."</string>
     <string name="event_info_organizer" msgid="9138683335394832629">"Organizátor:"</string>
-    <string name="event_info_desc_more" msgid="2961880675118098743">"Viac"</string>
-    <string name="event_info_desc_less" msgid="8295683160345195225">"Menej"</string>
     <string name="event_info_reminders_label" msgid="8913097552956388972">"Pripomienky"</string>
     <string name="agenda_today" msgid="5965841338467422191">"DNES, <xliff:g id="DATE">%1$s</xliff:g>"</string>
     <string name="agenda_yesterday" msgid="4170964206728599693">"VČERA, <xliff:g id="DATE">%1$s</xliff:g>"</string>
@@ -115,6 +133,7 @@
     <string name="discard_label" msgid="2394623883289782541">"Zrušiť"</string>
     <string name="snooze_all_label" msgid="4994488813124409077">"Odložiť všetky"</string>
     <string name="dismiss_all_label" msgid="1834400025868091301">"Zrušiť všetko"</string>
+    <string name="snooze_label" msgid="1515893621063224666">"Odložiť"</string>
     <string name="does_not_repeat" msgid="1877681921029738999">"Jednorazová udalosť"</string>
     <string name="daily" msgid="560350706808680448">"Denne"</string>
     <string name="every_weekday" msgid="5896574838353902978">"Každý pracovný deň (Po. – Pi.)"</string>
@@ -132,6 +151,7 @@
     <string name="new_event_dialog_label" msgid="7553105224561147916">"Nová udalosť"</string>
     <string name="new_event_dialog_option" msgid="6154657379574669371">"Nová udalosť"</string>
     <string name="delete_this_event_title" msgid="518402946676919384">"Odstrániť túto udalosť?"</string>
+    <string name="delete_recurring_event_title" msgid="5609046778422180206">"Odstrániť udalosť <xliff:g id="EVENTTITLE">%s</xliff:g>?"</string>
     <string name="change_response_title" msgid="7704714776070974984">"Zmeniť odpoveď"</string>
     <string name="menu_general_preferences" msgid="2812705323334260708">"Všeobecné nastavenia"</string>
     <string name="menu_about_preferences" msgid="6124375438237674973">"O Kalendári"</string>
@@ -169,7 +189,6 @@
     <item quantity="other" msgid="1997405398178470838">"+<xliff:g id="NUMBER">%d</xliff:g>"</item>
   </plurals>
     <string name="gadget_no_events" msgid="5209110911088302855">"Žiadne ďalšie udalosti v kalendári"</string>
-    <string name="tomorrow" msgid="614434811813859237">"Zajtra"</string>
     <string name="copy_db" msgid="437691290566699292">"Odoslať databázu"</string>
     <string name="directory_searching_fmt" msgid="1232037509095606687">"Prebieha vyhľadávanie <xliff:g id="DOMAIN">%s</xliff:g>…"</string>
     <string name="accessibility_remove_attendee" msgid="7082751172654698863">"Odstrániť účastníka"</string>
@@ -188,6 +207,18 @@
     <string name="accessibility_reminder_type" msgid="5339120699701437227">"Typ pripomienky"</string>
     <string name="accessibility_reminder_showmeas" msgid="6669129015980006570">"Zobraziť ma ako"</string>
     <string name="accessibility_reminder_privacy" msgid="8669288484484022771">"Ochrana osobných údajov"</string>
+    <string name="acessibility_cal_notification" msgid="7267601064994839394">"Upozornenie v kalendári"</string>
+    <string name="acessibility_snooze_notification" msgid="5007852779125102681">"Odložiť upozornenie"</string>
     <string name="day_view_new_event_hint" msgid="2131483437911536229">"Pridať novú udalosť"</string>
     <string name="template_announce_item_index" msgid="4067877800670753110">"Udalosť <xliff:g id="ITEM_INDEX">%1$s</xliff:g> z <xliff:g id="ITEM_COUNT">%2$s</xliff:g>."</string>
+  <plurals name="Nevents">
+    <item quantity="one" msgid="5230907142214104485">"1 udalosť"</item>
+    <item quantity="other" msgid="6093072093209431078">"Počet udalostí: <xliff:g id="COUNT">%d</xliff:g>"</item>
+  </plurals>
+  <plurals name="N_remaining_events">
+    <item quantity="one" msgid="431585781647034528">"+1 udalosť"</item>
+    <item quantity="other" msgid="3609243840882275136">"+ďalšie udalosti (<xliff:g id="COUNT">%d</xliff:g>)"</item>
+  </plurals>
+    <string name="acessibility_selected_marker_description" msgid="3010149843148810768">"Vybratá udalosť"</string>
+    <string name="do_not_check" msgid="7815441673853466129">"NEzačiarknite -&gt;"</string>
 </resources>

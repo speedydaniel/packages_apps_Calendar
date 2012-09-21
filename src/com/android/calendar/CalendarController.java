@@ -19,11 +19,13 @@ package com.android.calendar;
 import static android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME;
 import static android.provider.CalendarContract.EXTRA_EVENT_END_TIME;
 import static android.provider.CalendarContract.EXTRA_EVENT_ALL_DAY;
+import static android.provider.CalendarContract.Attendees.ATTENDEE_STATUS;
 
 import com.android.calendar.event.EditEventActivity;
 import com.android.calendar.selectcalendars.SelectVisibleCalendarsActivity;
 
 import android.accounts.Account;
+import android.accounts.AccountManager;
 import android.app.Activity;
 import android.app.SearchManager;
 import android.app.SearchableInfo;
@@ -36,6 +38,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.provider.CalendarContract.Attendees;
 import android.provider.CalendarContract.Calendars;
 import android.provider.CalendarContract.Events;
 import android.text.TextUtils;
@@ -64,18 +67,15 @@ public class CalendarController {
     public static final int MIN_CALENDAR_WEEK = 0;
     public static final int MAX_CALENDAR_WEEK = 3497; // weeks between 1/1/1970 and 1/1/2037
 
-    public static final String EVENT_ATTENDEE_RESPONSE = "attendeeResponse";
-    public static final int ATTENDEE_NO_RESPONSE = -1;
-
-    private Context mContext;
+    private final Context mContext;
 
     // This uses a LinkedHashMap so that we can replace fragments based on the
     // view id they are being expanded into since we can't guarantee a reference
     // to the handler will be findable
-    private LinkedHashMap<Integer,EventHandler> eventHandlers =
+    private final LinkedHashMap<Integer,EventHandler> eventHandlers =
             new LinkedHashMap<Integer,EventHandler>(5);
-    private LinkedList<Integer> mToBeRemovedEventHandlers = new LinkedList<Integer>();
-    private LinkedHashMap<Integer, EventHandler> mToBeAddedEventHandlers = new LinkedHashMap<
+    private final LinkedList<Integer> mToBeRemovedEventHandlers = new LinkedList<Integer>();
+    private final LinkedHashMap<Integer, EventHandler> mToBeAddedEventHandlers = new LinkedHashMap<
             Integer, EventHandler>();
     private Pair<Integer, EventHandler> mFirstEventHandler;
     private Pair<Integer, EventHandler> mToBeAddedFirstEventHandler;
@@ -84,18 +84,16 @@ public class CalendarController {
     private static WeakHashMap<Context, CalendarController> instances =
         new WeakHashMap<Context, CalendarController>();
 
-    private WeakHashMap<Object, Long> filters = new WeakHashMap<Object, Long>(1);
+    private final WeakHashMap<Object, Long> filters = new WeakHashMap<Object, Long>(1);
 
     private int mViewType = -1;
     private int mDetailViewType = -1;
     private int mPreviousViewType = -1;
     private long mEventId = -1;
-    private Time mTime = new Time();
+    private final Time mTime = new Time();
     private long mDateFlags = 0;
 
-    private AsyncQueryService mService;
-
-    private Runnable mUpdateTimezone = new Runnable() {
+    private final Runnable mUpdateTimezone = new Runnable() {
         @Override
         public void run() {
             mTime.switchTimezone(Utils.getTimeZone(mContext, this));
@@ -151,6 +149,14 @@ public class CalendarController {
     }
 
     public static class EventInfo {
+
+        private static final long ATTENTEE_STATUS_MASK = 0xFF;
+        private static final long ALL_DAY_MASK = 0x100;
+        private static final int ATTENDEE_STATUS_NONE_MASK = 0x01;
+        private static final int ATTENDEE_STATUS_ACCEPTED_MASK = 0x02;
+        private static final int ATTENDEE_STATUS_DECLINED_MASK = 0x04;
+        private static final int ATTENDEE_STATUS_TENTATIVE_MASK = 0x08;
+
         public long eventType; // one of the EventType
         public int viewType; // one of the ViewType
         public long id; // event id
@@ -164,9 +170,11 @@ public class CalendarController {
 
         /**
          * For EventType.VIEW_EVENT:
-         * It is the default attendee response.
-         * Set to {@link #ATTENDEE_NO_RESPONSE}, Calendar.ATTENDEE_STATUS_ACCEPTED,
-         * Calendar.ATTENDEE_STATUS_DECLINED, or Calendar.ATTENDEE_STATUS_TENTATIVE.
+         * It is the default attendee response and an all day event indicator.
+         * Set to Attendees.ATTENDEE_STATUS_NONE, Attendees.ATTENDEE_STATUS_ACCEPTED,
+         * Attendees.ATTENDEE_STATUS_DECLINED, or Attendees.ATTENDEE_STATUS_TENTATIVE.
+         * To signal the event is an all-day event, "or" ALL_DAY_MASK with the response.
+         * Alternatively, use buildViewExtraLong(), getResponse(), and isAllDay().
          * <p>
          * For EventType.CREATE_EVENT:
          * Set to {@link #EXTRA_CREATE_ALL_DAY} for creating an all-day event.
@@ -181,6 +189,61 @@ public class CalendarController {
          * Set formatting flags for Utils.formatDateRange
          */
         public long extraLong;
+
+        public boolean isAllDay() {
+            if (eventType != EventType.VIEW_EVENT) {
+                Log.wtf(TAG, "illegal call to isAllDay , wrong event type " + eventType);
+                return false;
+            }
+            return ((extraLong & ALL_DAY_MASK) != 0) ? true : false;
+        }
+
+        public  int getResponse() {
+            if (eventType != EventType.VIEW_EVENT) {
+                Log.wtf(TAG, "illegal call to getResponse , wrong event type " + eventType);
+                return Attendees.ATTENDEE_STATUS_NONE;
+            }
+
+            int response = (int)(extraLong & ATTENTEE_STATUS_MASK);
+            switch (response) {
+                case ATTENDEE_STATUS_NONE_MASK:
+                    return Attendees.ATTENDEE_STATUS_NONE;
+                case ATTENDEE_STATUS_ACCEPTED_MASK:
+                    return Attendees.ATTENDEE_STATUS_ACCEPTED;
+                case ATTENDEE_STATUS_DECLINED_MASK:
+                    return Attendees.ATTENDEE_STATUS_DECLINED;
+                case ATTENDEE_STATUS_TENTATIVE_MASK:
+                    return Attendees.ATTENDEE_STATUS_TENTATIVE;
+                default:
+                    Log.wtf(TAG,"Unknown attendee response " + response);
+            }
+            return ATTENDEE_STATUS_NONE_MASK;
+        }
+
+        // Used to build the extra long for a VIEW event.
+        public static long buildViewExtraLong(int response, boolean allDay) {
+            long extra = allDay ? ALL_DAY_MASK : 0;
+
+            switch (response) {
+                case Attendees.ATTENDEE_STATUS_NONE:
+                    extra |= ATTENDEE_STATUS_NONE_MASK;
+                    break;
+                case Attendees.ATTENDEE_STATUS_ACCEPTED:
+                    extra |= ATTENDEE_STATUS_ACCEPTED_MASK;
+                    break;
+                case Attendees.ATTENDEE_STATUS_DECLINED:
+                    extra |= ATTENDEE_STATUS_DECLINED_MASK;
+                    break;
+                case Attendees.ATTENDEE_STATUS_TENTATIVE:
+                    extra |= ATTENDEE_STATUS_TENTATIVE_MASK;
+                    break;
+                default:
+                    Log.wtf(TAG,"Unknown attendee response " + response);
+                    extra |= ATTENDEE_STATUS_NONE_MASK;
+                    break;
+            }
+            return extra;
+        }
     }
 
     /**
@@ -243,18 +306,17 @@ public class CalendarController {
         mDetailViewType = Utils.getSharedPreference(mContext,
                 GeneralPreferences.KEY_DETAILED_VIEW,
                 GeneralPreferences.DEFAULT_DETAILED_VIEW);
-        mService = new AsyncQueryService(context) {
-            @Override
-            protected void onQueryComplete(int token, Object cookie, Cursor cursor) {
-                new RefreshInBackground().execute(cursor);
-            }
-        };
     }
 
     public void sendEventRelatedEvent(Object sender, long eventType, long eventId, long startMillis,
             long endMillis, int x, int y, long selectedMillis) {
+        // TODO: pass the real allDay status or at least a status that says we don't know the
+        // status and have the receiver query the data.
+        // The current use of this method for VIEW_EVENT is by the day view to show an EventInfo
+        // so currently the missing allDay status has no effect.
         sendEventRelatedEventWithExtra(sender, eventType, eventId, startMillis, endMillis, x, y,
-                CalendarController.ATTENDEE_NO_RESPONSE, selectedMillis);
+                EventInfo.buildViewExtraLong(Attendees.ATTENDEE_STATUS_NONE, false),
+                selectedMillis);
     }
 
     /**
@@ -267,8 +329,8 @@ public class CalendarController {
      * @param endMillis end time
      * @param x x coordinate in the activity space
      * @param y y coordinate in the activity space
-     * @param extraLong default response value for the "simple event view". Use
-     *            CalendarController.ATTENDEE_NO_RESPONSE for no response.
+     * @param extraLong default response value for the "simple event view" and all day indication.
+     *        Use Attendees.ATTENDEE_STATUS_NONE for no response.
      * @param selectedMillis The time to specify as selected
      */
     public void sendEventRelatedEventWithExtra(Object sender, long eventType, long eventId,
@@ -507,7 +569,8 @@ public class CalendarController {
                         event.extraLong == EXTRA_CREATE_ALL_DAY);
                 return;
             } else if (event.eventType == EventType.VIEW_EVENT) {
-                launchViewEvent(event.id, event.startTime.toMillis(false), endTime);
+                launchViewEvent(event.id, event.startTime.toMillis(false), endTime,
+                        event.getResponse());
                 return;
             } else if (event.eventType == EventType.EDIT_EVENT) {
                 launchEditEvent(event.id, event.startTime.toMillis(false), endTime, true);
@@ -647,13 +710,14 @@ public class CalendarController {
         mContext.startActivity(intent);
     }
 
-    public void launchViewEvent(long eventId, long startMillis, long endMillis) {
+    public void launchViewEvent(long eventId, long startMillis, long endMillis, int response) {
         Intent intent = new Intent(Intent.ACTION_VIEW);
         Uri eventUri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId);
         intent.setData(eventUri);
         intent.setClass(mContext, AllInOneActivity.class);
         intent.putExtra(EXTRA_EVENT_BEGIN_TIME, startMillis);
         intent.putExtra(EXTRA_EVENT_END_TIME, endMillis);
+        intent.putExtra(ATTENDEE_STATUS, response);
         intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
         mContext.startActivity(intent);
     }
@@ -698,15 +762,22 @@ public class CalendarController {
         mContext.startActivity(intent);
     }
 
+    /**
+     * Performs a manual refresh of calendars in all known accounts.
+     */
     public void refreshCalendars() {
-        Log.d(TAG, "RefreshCalendars starting");
-        // get the account, url, and current sync state
-        mService.startQuery(mService.getNextToken(), null, Calendars.CONTENT_URI,
-                new String[] {Calendars._ID, // 0
-                        Calendars.ACCOUNT_NAME, // 1
-                        Calendars.ACCOUNT_TYPE, // 2
-                        },
-                REFRESH_SELECTION, REFRESH_ARGS, REFRESH_ORDER);
+        Account[] accounts = AccountManager.get(mContext).getAccounts();
+        Log.d(TAG, "Refreshing " + accounts.length + " accounts");
+
+        String authority = Calendars.CONTENT_URI.getAuthority();
+        for (int i = 0; i < accounts.length; i++) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "Refreshing calendars for: " + accounts[i]);
+            }
+            Bundle extras = new Bundle();
+            extras.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
+            ContentResolver.requestSync(accounts[i], authority, extras);
+        }
     }
 
     // Forces the viewType. Should only be used for initialization.
@@ -717,67 +788,6 @@ public class CalendarController {
     // Sets the eventId. Should only be used for initialization.
     public void setEventId(long eventId) {
         mEventId = eventId;
-    }
-
-    private class RefreshInBackground extends AsyncTask<Cursor, Integer, Integer> {
-        /* (non-Javadoc)
-         * @see android.os.AsyncTask#doInBackground(Params[])
-         */
-        @Override
-        protected Integer doInBackground(Cursor... params) {
-            if (params.length != 1) {
-                return null;
-            }
-            Cursor cursor = params[0];
-            if (cursor == null) {
-                return null;
-            }
-
-            String previousAccount = null;
-            String previousType = null;
-            Log.d(TAG, "Refreshing " + cursor.getCount() + " calendars");
-            try {
-                while (cursor.moveToNext()) {
-                    Account account = null;
-                    String accountName = cursor.getString(1);
-                    String accountType = cursor.getString(2);
-                    // Only need to schedule one sync per account and they're
-                    // ordered by account,type
-                    if (TextUtils.equals(accountName, previousAccount) &&
-                            TextUtils.equals(accountType, previousType)) {
-                        continue;
-                    }
-                    previousAccount = accountName;
-                    previousType = accountType;
-                    account = new Account(accountName, accountType);
-                    scheduleSync(account, false /* two-way sync */, null);
-                }
-            } finally {
-                cursor.close();
-            }
-            return null;
-        }
-
-        /**
-         * Schedule a calendar sync for the account.
-         * @param account the account for which to schedule a sync
-         * @param uploadChangesOnly if set, specify that the sync should only send
-         *   up local changes.  This is typically used for a local sync, a user override of
-         *   too many deletions, or a sync after a calendar is unselected.
-         * @param url the url feed for the calendar to sync (may be null, in which case a poll of
-         *   all feeds is done.)
-         */
-        void scheduleSync(Account account, boolean uploadChangesOnly, String url) {
-            Bundle extras = new Bundle();
-            if (uploadChangesOnly) {
-                extras.putBoolean(ContentResolver.SYNC_EXTRAS_UPLOAD, uploadChangesOnly);
-            }
-            if (url != null) {
-                extras.putString("feed", url);
-            }
-            extras.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
-            ContentResolver.requestSync(account, Calendars.CONTENT_URI.getAuthority(), extras);
-        }
     }
 
     private String eventInfoToString(EventInfo eventInfo) {

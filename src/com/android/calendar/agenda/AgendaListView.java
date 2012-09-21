@@ -28,6 +28,7 @@ import com.android.calendar.agenda.AgendaWindowAdapter.EventInfo;
 import android.content.Context;
 import android.graphics.Rect;
 import android.os.Handler;
+import android.provider.CalendarContract.Attendees;
 import android.text.format.Time;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -51,7 +52,7 @@ public class AgendaListView extends ListView implements OnItemClickListener {
     private boolean mShowEventDetailsWithAgenda;
     private Handler mHandler = null;
 
-    private Runnable mTZUpdater = new Runnable() {
+    private final Runnable mTZUpdater = new Runnable() {
         @Override
         public void run() {
             mTimeZone = Utils.getTimeZone(mContext, this);
@@ -61,16 +62,16 @@ public class AgendaListView extends ListView implements OnItemClickListener {
 
     // runs every midnight and refreshes the view in order to update the past/present
     // separator
-    private Runnable mMidnightUpdater = new Runnable() {
+    private final Runnable mMidnightUpdater = new Runnable() {
         @Override
         public void run() {
             refresh(true);
-            setMidnightUpdater();
+            Utils.setMidnightUpdater(mHandler, mMidnightUpdater, mTimeZone);
         }
     };
 
     // Runs every EVENT_UPDATE_TIME to gray out past events
-    private Runnable mPastEventUpdater = new Runnable() {
+    private final Runnable mPastEventUpdater = new Runnable() {
         @Override
         public void run() {
             if (updatePastEvents() == true) {
@@ -90,7 +91,6 @@ public class AgendaListView extends ListView implements OnItemClickListener {
         mTimeZone = Utils.getTimeZone(context, mTZUpdater);
         mTime = new Time(mTimeZone);
         setOnItemClickListener(this);
-        setChoiceMode(ListView.CHOICE_MODE_SINGLE);
         setVerticalScrollBarEnabled(false);
         mWindowAdapter = new AgendaWindowAdapter(context, this,
                 Utils.getConfigBool(context, R.bool.show_event_details_with_agenda));
@@ -106,26 +106,6 @@ public class AgendaListView extends ListView implements OnItemClickListener {
         setDividerHeight(0);
 
         mHandler = new Handler();
-    }
-
-
-    // Sets a thread to run one second after midnight and refresh the list view
-    // causing the separator between past/present to be updated.
-    private void setMidnightUpdater() {
-        // Calculate the time until midnight + 1 second and set the handler to
-        // do a refresh at that time.
-        long now = System.currentTimeMillis();
-        Time time = new Time(mTimeZone);
-        time.set(now);
-        long runInMillis = (24 * 3600 - time.hour * 3600 - time.minute * 60 -
-                time.second + 1) * 1000;
-        mHandler.removeCallbacks(mMidnightUpdater);
-        mHandler.postDelayed(mMidnightUpdater, runInMillis);
-    }
-
-    // Stop the midnight update thread
-    private void resetMidnightUpdater() {
-        mHandler.removeCallbacks(mMidnightUpdater);
     }
 
     // Sets a thread to run every EVENT_UPDATE_TIME in order to update the list
@@ -208,9 +188,12 @@ public class AgendaListView extends ListView implements OnItemClickListener {
                     startTime = Utils.convertAlldayLocalToUTC(mTime, startTime, mTimeZone);
                     endTime = Utils.convertAlldayLocalToUTC(mTime, endTime, mTimeZone);
                 }
+                mTime.set(startTime);
                 CalendarController controller = CalendarController.getInstance(mContext);
-                controller.sendEventRelatedEvent(this, EventType.VIEW_EVENT, event.id, startTime,
-                        endTime, 0, 0, controller.getTime());
+                controller.sendEventRelatedEventWithExtra(this, EventType.VIEW_EVENT, event.id,
+                        startTime, endTime, 0, 0, CalendarController.EventInfo.buildViewExtraLong(
+                                Attendees.ATTENDEE_STATUS_NONE, event.allDay),
+                        controller.getTime());
             }
         }
     }
@@ -351,8 +334,8 @@ public class AgendaListView extends ListView implements OnItemClickListener {
             }
             if (event.id == id && event.begin == milliTime) {
                 View listItem = getChildAt(i);
-                if (listItem.getBottom() <= getHeight() &&
-                        listItem.getTop() >= 0) {
+                if (listItem.getTop() <= getHeight() &&
+                        listItem.getTop() >= mWindowAdapter.getStickyHeaderHeight()) {
                     return true;
                 }
             }
@@ -421,13 +404,13 @@ public class AgendaListView extends ListView implements OnItemClickListener {
 
     public void onResume() {
         mTZUpdater.run();
-        setMidnightUpdater();
+        Utils.setMidnightUpdater(mHandler, mMidnightUpdater, mTimeZone);
         setPastEventsUpdater();
         mWindowAdapter.onResume();
     }
 
     public void onPause() {
-        resetMidnightUpdater();
+        Utils.resetMidnightUpdater(mHandler, mMidnightUpdater);
         resetPastEventsUpdater();
     }
 }

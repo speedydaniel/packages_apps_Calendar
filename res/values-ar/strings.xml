@@ -22,6 +22,11 @@
     <string name="when_label" msgid="894636567327261599">"الموعد"</string>
     <string name="timezone_label" msgid="3988530993300431650">"المنطقة الزمنية"</string>
     <string name="attendees_label" msgid="2971281641565729725">"المدعوون"</string>
+    <string name="today" msgid="8577375020252453006">"اليوم"</string>
+    <string name="tomorrow" msgid="614434811813859237">"غدًا"</string>
+    <string name="today_at_time_fmt" msgid="1981279213130049736">"اليوم في <xliff:g id="TIME_INTERVAL">%s</xliff:g>"</string>
+    <string name="tomorrow_at_time_fmt" msgid="1330779112841767432">"غدًا في <xliff:g id="TIME_INTERVAL">%s</xliff:g>"</string>
+    <string name="date_time_fmt" msgid="1642972650061946484">"<xliff:g id="DATE">%s</xliff:g>، <xliff:g id="TIME_INTERVAL">%s</xliff:g>"</string>
     <string name="repeats_label" msgid="7414023871434593196">"التكرار"</string>
     <string name="no_title_label" msgid="302177118061368042">"(بلا عنوان)"</string>
   <plurals name="Nminutes">
@@ -73,8 +78,8 @@
     <string name="creating_event" msgid="7516249252554059980">"تم إنشاء الحدث."</string>
     <string name="saving_event" msgid="7694181017411177226">"تم حفظ الحدث."</string>
     <string name="empty_event" msgid="9018699257414338634">"لم يتم إنشاء الحدث لأنه فارغ."</string>
-    <string name="creating_event_with_guest" msgid="8535098983005383300">"تم إرسال الدعوات."</string>
-    <string name="saving_event_with_guest" msgid="8678551213800311856">"تم إرسال التحديثات."</string>
+    <string name="creating_event_with_guest" msgid="5758688413124191931">"سيتم إرسال الدعوات."</string>
+    <string name="saving_event_with_guest" msgid="9184584438475689577">"سيتم إرسال التحديثات."</string>
     <string name="alert_title" msgid="7869592820853066853">"إعلامات التقاويم"</string>
     <string name="event_info_title" msgid="56024222340421620">"عرض الحدث"</string>
     <string name="event_info_title_invite" msgid="9160326363769403865">"دعوة اجتماع"</string>
@@ -97,9 +102,22 @@
     <string name="response_yes" msgid="2027484304899988350">"نعم"</string>
     <string name="response_maybe" msgid="7791500973627841695">"ربما"</string>
     <string name="response_no" msgid="561911691884148136">"لا"</string>
+    <string name="email_guests_label" msgid="8772030932155305903">"إرسال بريد إلكتروني إلى المدعوين"</string>
+    <string name="email_picker_label" msgid="4808253965057791781">"إرسال رسالة إلكترونية إلى"</string>
+    <string name="quick_response_settings" msgid="6776151690686068278">"الردود السريعة"</string>
+    <string name="quick_response_settings_summary" msgid="7878304729027355604">"تعديل الردود الافتراضية في المراسلة الإلكترونية للمدعوين"</string>
+    <string name="quick_response_settings_title" msgid="8966517107774567031">"تعديل الردود السريعة"</string>
+    <string name="quick_response_settings_edit_title" msgid="6260055523174081930">"رد سريع"</string>
+    <string name="quick_response_dialog_title" msgid="2681309456412199207">"اختيار رد سريع"</string>
+    <string name="quick_response_email_failed" msgid="5544066405231853245">"أخفق العثور على برنامج بريد إلكتروني"</string>
+  <string-array name="quick_response_defaults">
+    <item msgid="1524421198348168403">"تتم إقامته بعد تأخير لمدة دقيقتين."</item>
+    <item msgid="6215158751728689832">"كن هناك خلال حوالي 10 دقائق."</item>
+    <item msgid="4485794001743679338">"انطلق وابدأ بدوني."</item>
+    <item msgid="8036557974294987511">"عذرًا، لا يمكنني الحضور. علينا إعادة الجدولة."</item>
+  </string-array>
+    <string name="quick_response_custom_msg" msgid="7265035125070482285">"رسالة مخصصة…"</string>
     <string name="event_info_organizer" msgid="9138683335394832629">"المنظِّم:"</string>
-    <string name="event_info_desc_more" msgid="2961880675118098743">"المزيد"</string>
-    <string name="event_info_desc_less" msgid="8295683160345195225">"أقل"</string>
     <string name="event_info_reminders_label" msgid="8913097552956388972">"تذكيرات"</string>
     <string name="agenda_today" msgid="5965841338467422191">"اليوم، <xliff:g id="DATE">%1$s</xliff:g>"</string>
     <string name="agenda_yesterday" msgid="4170964206728599693">"أمس، <xliff:g id="DATE">%1$s</xliff:g>"</string>
@@ -115,6 +133,7 @@
     <string name="discard_label" msgid="2394623883289782541">"إلغاء"</string>
     <string name="snooze_all_label" msgid="4994488813124409077">"غفوة مؤقتة للكل"</string>
     <string name="dismiss_all_label" msgid="1834400025868091301">"استبعاد الكل"</string>
+    <string name="snooze_label" msgid="1515893621063224666">"غفوة"</string>
     <string name="does_not_repeat" msgid="1877681921029738999">"حدث لمرة واحدة"</string>
     <string name="daily" msgid="560350706808680448">"يوميًا"</string>
     <string name="every_weekday" msgid="5896574838353902978">"كل أيام الأسبوع (الاثنين-الجمعة)"</string>
@@ -132,6 +151,7 @@
     <string name="new_event_dialog_label" msgid="7553105224561147916">"حدث جديد"</string>
     <string name="new_event_dialog_option" msgid="6154657379574669371">"حدث جديد"</string>
     <string name="delete_this_event_title" msgid="518402946676919384">"هل تريد حذف هذا الحدث؟"</string>
+    <string name="delete_recurring_event_title" msgid="5609046778422180206">"هل تريد حذف <xliff:g id="EVENTTITLE">%s</xliff:g>؟"</string>
     <string name="change_response_title" msgid="7704714776070974984">"تغيير الرد"</string>
     <string name="menu_general_preferences" msgid="2812705323334260708">"إعدادات عامة"</string>
     <string name="menu_about_preferences" msgid="6124375438237674973">"حول التقويم"</string>
@@ -165,11 +185,10 @@
     <string name="prefDialogTitle_vibrateWhen" msgid="8995274609647451109">"اهتزاز"</string>
     <string name="gadget_title" msgid="939918875331310945">"التقويم"</string>
   <plurals name="month_more_events">
-    <item quantity="one" msgid="8971334808414201327">"+1"</item>
+    <item quantity="one" msgid="8971334808414201327">"1+"</item>
     <item quantity="other" msgid="1997405398178470838">"+<xliff:g id="NUMBER">%d</xliff:g>"</item>
   </plurals>
     <string name="gadget_no_events" msgid="5209110911088302855">"لا توجد أحداث تقويم قادمة"</string>
-    <string name="tomorrow" msgid="614434811813859237">"غدًا"</string>
     <string name="copy_db" msgid="437691290566699292">"إرسال قاعدة البيانات"</string>
     <string name="directory_searching_fmt" msgid="1232037509095606687">"جارِ البحث في <xliff:g id="DOMAIN">%s</xliff:g>…"</string>
     <string name="accessibility_remove_attendee" msgid="7082751172654698863">"إزالة أحد الحضور"</string>
@@ -188,6 +207,18 @@
     <string name="accessibility_reminder_type" msgid="5339120699701437227">"نوع التذكير"</string>
     <string name="accessibility_reminder_showmeas" msgid="6669129015980006570">"حالتي المعروضة هي"</string>
     <string name="accessibility_reminder_privacy" msgid="8669288484484022771">"الخصوصية"</string>
+    <string name="acessibility_cal_notification" msgid="7267601064994839394">"إشعار التقويم"</string>
+    <string name="acessibility_snooze_notification" msgid="5007852779125102681">"إشعار الغفوة"</string>
     <string name="day_view_new_event_hint" msgid="2131483437911536229">"+ حدث جديد"</string>
     <string name="template_announce_item_index" msgid="4067877800670753110">"الحدث <xliff:g id="ITEM_INDEX">%1$s</xliff:g> من <xliff:g id="ITEM_COUNT">%2$s</xliff:g>."</string>
+  <plurals name="Nevents">
+    <item quantity="one" msgid="5230907142214104485">"حدث واحد"</item>
+    <item quantity="other" msgid="6093072093209431078">"<xliff:g id="COUNT">%d</xliff:g> من الأحداث"</item>
+  </plurals>
+  <plurals name="N_remaining_events">
+    <item quantity="one" msgid="431585781647034528">"+ حدث واحد"</item>
+    <item quantity="other" msgid="3609243840882275136">"+<xliff:g id="COUNT">%d</xliff:g> من الأحداث"</item>
+  </plurals>
+    <string name="acessibility_selected_marker_description" msgid="3010149843148810768">"حدث محدد"</string>
+    <string name="do_not_check" msgid="7815441673853466129">"لا تحدد -&gt;"</string>
 </resources>

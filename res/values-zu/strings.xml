@@ -22,6 +22,11 @@
     <string name="when_label" msgid="894636567327261599">"Nini"</string>
     <string name="timezone_label" msgid="3988530993300431650">"Indawo yesikhathi"</string>
     <string name="attendees_label" msgid="2971281641565729725">"Abavakashi"</string>
+    <string name="today" msgid="8577375020252453006">"Namhlanje"</string>
+    <string name="tomorrow" msgid="614434811813859237">"Kusasa"</string>
+    <string name="today_at_time_fmt" msgid="1981279213130049736">"Namuhla ngo-<xliff:g id="TIME_INTERVAL">%s</xliff:g>"</string>
+    <string name="tomorrow_at_time_fmt" msgid="1330779112841767432">"Kusasa ngo-<xliff:g id="TIME_INTERVAL">%s</xliff:g>"</string>
+    <string name="date_time_fmt" msgid="1642972650061946484">"<xliff:g id="DATE">%s</xliff:g>, <xliff:g id="TIME_INTERVAL">%s</xliff:g>"</string>
     <string name="repeats_label" msgid="7414023871434593196">"Impinda"</string>
     <string name="no_title_label" msgid="302177118061368042">"(Asikho isihloko)"</string>
   <plurals name="Nminutes">
@@ -73,8 +78,8 @@
     <string name="creating_event" msgid="7516249252554059980">"Isenzakalo senziwe"</string>
     <string name="saving_event" msgid="7694181017411177226">"Isenzakalo sigciniwe"</string>
     <string name="empty_event" msgid="9018699257414338634">"Isenzakalo esingenalutho asenziwanga"</string>
-    <string name="creating_event_with_guest" msgid="8535098983005383300">"Izimemo zithunyelwe"</string>
-    <string name="saving_event_with_guest" msgid="8678551213800311856">"Buyekeza okuthunyelwe"</string>
+    <string name="creating_event_with_guest" msgid="5758688413124191931">"Izimemo zizothunyelwa."</string>
+    <string name="saving_event_with_guest" msgid="9184584438475689577">"Ukubuyekeza kuzothunyelwa."</string>
     <string name="alert_title" msgid="7869592820853066853">"Izaziso zekhalenda"</string>
     <string name="event_info_title" msgid="56024222340421620">"Buka isenzakalo"</string>
     <string name="event_info_title_invite" msgid="9160326363769403865">"Isimemo somhlangano"</string>
@@ -97,9 +102,27 @@
     <string name="response_yes" msgid="2027484304899988350">"Yebo"</string>
     <string name="response_maybe" msgid="7791500973627841695">"Mhlawumbe"</string>
     <string name="response_no" msgid="561911691884148136">"Cha"</string>
+    <string name="email_guests_label" msgid="8772030932155305903">"Izivakashi ze-imeyili"</string>
+    <string name="email_picker_label" msgid="4808253965057791781">"I-imeyili no"</string>
+    <!-- no translation found for quick_response_settings (6776151690686068278) -->
+    <skip />
+    <!-- no translation found for quick_response_settings_summary (7878304729027355604) -->
+    <skip />
+    <!-- no translation found for quick_response_settings_title (8966517107774567031) -->
+    <skip />
+    <!-- no translation found for quick_response_settings_edit_title (6260055523174081930) -->
+    <skip />
+    <!-- no translation found for quick_response_dialog_title (2681309456412199207) -->
+    <skip />
+    <!-- no translation found for quick_response_email_failed (5544066405231853245) -->
+    <skip />
+    <!-- no translation found for quick_response_defaults:0 (1524421198348168403) -->
+    <!-- no translation found for quick_response_defaults:1 (6215158751728689832) -->
+    <!-- no translation found for quick_response_defaults:2 (4485794001743679338) -->
+    <!-- no translation found for quick_response_defaults:3 (8036557974294987511) -->
+    <!-- no translation found for quick_response_custom_msg (7265035125070482285) -->
+    <skip />
     <string name="event_info_organizer" msgid="9138683335394832629">"Umhleli:"</string>
-    <string name="event_info_desc_more" msgid="2961880675118098743">"Okungaphezulu"</string>
-    <string name="event_info_desc_less" msgid="8295683160345195225">"Okungaphansi"</string>
     <string name="event_info_reminders_label" msgid="8913097552956388972">"Izikhumbuzi"</string>
     <string name="agenda_today" msgid="5965841338467422191">"NAMHLANJE, <xliff:g id="DATE">%1$s</xliff:g>"</string>
     <string name="agenda_yesterday" msgid="4170964206728599693">"IZOLO, <xliff:g id="DATE">%1$s</xliff:g>"</string>
@@ -115,6 +138,7 @@
     <string name="discard_label" msgid="2394623883289782541">"Khansela"</string>
     <string name="snooze_all_label" msgid="4994488813124409077">"Snuza konke"</string>
     <string name="dismiss_all_label" msgid="1834400025868091301">"Cashisa konke"</string>
+    <string name="snooze_label" msgid="1515893621063224666">"Ukusnuza"</string>
     <string name="does_not_repeat" msgid="1877681921029738999">"Isenzakalo sesikhathi esisodwa"</string>
     <string name="daily" msgid="560350706808680448">"Nsuku zonke"</string>
     <string name="every_weekday" msgid="5896574838353902978">"Njalo phakathi nesonto (Msom-Lwes)"</string>
@@ -132,6 +156,7 @@
     <string name="new_event_dialog_label" msgid="7553105224561147916">"Isenzakalo esisha"</string>
     <string name="new_event_dialog_option" msgid="6154657379574669371">"Isenzakalo esisha"</string>
     <string name="delete_this_event_title" msgid="518402946676919384">"Susa lomcimbi?"</string>
+    <string name="delete_recurring_event_title" msgid="5609046778422180206">"Susa i-<xliff:g id="EVENTTITLE">%s</xliff:g>?"</string>
     <string name="change_response_title" msgid="7704714776070974984">"Shintsha impendulo"</string>
     <string name="menu_general_preferences" msgid="2812705323334260708">"Izilungiselelo ezijwayelekile"</string>
     <string name="menu_about_preferences" msgid="6124375438237674973">"Mayelana nekhalenda"</string>
@@ -169,7 +194,6 @@
     <item quantity="other" msgid="1997405398178470838">"+<xliff:g id="NUMBER">%d</xliff:g>"</item>
   </plurals>
     <string name="gadget_no_events" msgid="5209110911088302855">"Azikho izenzakalo zekhalenda ezizayo"</string>
-    <string name="tomorrow" msgid="614434811813859237">"Kusasa"</string>
     <string name="copy_db" msgid="437691290566699292">"Thumela imininingo egciniwe"</string>
     <string name="directory_searching_fmt" msgid="1232037509095606687">"Iyasesha...<xliff:g id="DOMAIN">%s</xliff:g>"</string>
     <string name="accessibility_remove_attendee" msgid="7082751172654698863">"Susa abaphelekezeli"</string>
@@ -188,6 +212,18 @@
     <string name="accessibility_reminder_type" msgid="5339120699701437227">"Uhlobo lwesikhumbuzi"</string>
     <string name="accessibility_reminder_showmeas" msgid="6669129015980006570">"Ngibonise njengo"</string>
     <string name="accessibility_reminder_privacy" msgid="8669288484484022771">"Ubumfihlo"</string>
+    <string name="acessibility_cal_notification" msgid="7267601064994839394">"Izaziso zekhalenda"</string>
+    <string name="acessibility_snooze_notification" msgid="5007852779125102681">"Hlehlisa isaziso"</string>
     <string name="day_view_new_event_hint" msgid="2131483437911536229">"Isenzakalo esisha"</string>
     <string name="template_announce_item_index" msgid="4067877800670753110">"Isenzakalo <xliff:g id="ITEM_INDEX">%1$s</xliff:g> se <xliff:g id="ITEM_COUNT">%2$s</xliff:g>."</string>
+  <plurals name="Nevents">
+    <item quantity="one" msgid="5230907142214104485">"Isehlakalo esi-1"</item>
+    <item quantity="other" msgid="6093072093209431078">"Izehlakalo ezingu-<xliff:g id="COUNT">%d</xliff:g>"</item>
+  </plurals>
+  <plurals name="N_remaining_events">
+    <item quantity="one" msgid="431585781647034528">"Isehlakalo esi-+1"</item>
+    <item quantity="other" msgid="3609243840882275136">"Izehlakalo ezingu-+<xliff:g id="COUNT">%d</xliff:g>"</item>
+  </plurals>
+    <string name="acessibility_selected_marker_description" msgid="3010149843148810768">"Isehlakalo esikhethiwe"</string>
+    <string name="do_not_check" msgid="7815441673853466129">"Ungalokothi uhlole -&gt;"</string>
 </resources>

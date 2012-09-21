@@ -16,23 +16,14 @@
 
 package com.android.calendar;
 
+import static android.provider.CalendarContract.EXTRA_EVENT_ALL_DAY;
 import static android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME;
 import static android.provider.CalendarContract.EXTRA_EVENT_END_TIME;
-import static android.provider.CalendarContract.EXTRA_EVENT_ALL_DAY;
 import static com.android.calendar.CalendarController.EVENT_EDIT_ON_LAUNCH;
 
-import com.android.calendar.CalendarController.EventInfo;
-import com.android.calendar.CalendarController.EventType;
-import com.android.calendar.CalendarEventModel.Attendee;
-import com.android.calendar.CalendarEventModel.ReminderEntry;
-import com.android.calendar.event.AttendeesView;
-import com.android.calendar.event.EditEventActivity;
-import com.android.calendar.event.EditEventHelper;
-import com.android.calendar.event.EventViewUtils;
-import com.android.calendarcommon.EventRecurrence;
-import com.android.i18n.phonenumbers.PhoneNumberMatch;
-import com.android.i18n.phonenumbers.PhoneNumberUtil;
-
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.app.Dialog;
 import android.app.DialogFragment;
@@ -46,10 +37,14 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.CalendarContract;
@@ -66,13 +61,10 @@ import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextUtils;
-import android.text.format.DateFormat;
-import android.text.format.DateUtils;
 import android.text.format.Time;
 import android.text.method.LinkMovementMethod;
 import android.text.method.MovementMethod;
 import android.text.style.ForegroundColorSpan;
-import android.text.style.StrikethroughSpan;
 import android.text.style.StyleSpan;
 import android.text.style.URLSpan;
 import android.text.util.Linkify;
@@ -103,18 +95,25 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.calendar.CalendarController.EventInfo;
+import com.android.calendar.CalendarController.EventType;
+import com.android.calendar.CalendarEventModel.Attendee;
+import com.android.calendar.CalendarEventModel.ReminderEntry;
+import com.android.calendar.event.AttendeesView;
+import com.android.calendar.event.EditEventActivity;
+import com.android.calendar.event.EditEventHelper;
+import com.android.calendar.event.EventViewUtils;
+import com.android.calendarcommon.EventRecurrence;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Formatter;
 import java.util.List;
-import java.util.Locale;
-import java.util.TimeZone;
 import java.util.regex.Pattern;
-
 
 public class EventInfoFragment extends DialogFragment implements OnCheckedChangeListener,
         CalendarController.EventHandler, OnClickListener, DeleteEventHelper.DeleteNotifyListener {
+
     public static final boolean DEBUG = false;
 
     public static final String TAG = "EventInfoFragment";
@@ -165,13 +164,15 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         Events.DESCRIPTION,          // 8
         Events.EVENT_LOCATION,       // 9
         Calendars.CALENDAR_ACCESS_LEVEL,      // 10
-        Calendars.CALENDAR_COLOR,             // 11
+        Events.DISPLAY_COLOR,                 // 11
         Events.HAS_ATTENDEE_DATA,    // 12
         Events.ORGANIZER,            // 13
         Events.HAS_ALARM,            // 14
         Calendars.MAX_REMINDERS,     //15
         Calendars.ALLOWED_REMINDERS, // 16
-        Events.ORIGINAL_SYNC_ID,     // 17 do not remove; used in DeleteEventHelper
+        Events.CUSTOM_APP_PACKAGE,   // 17
+        Events.CUSTOM_APP_URI,       // 18
+        Events.ORIGINAL_SYNC_ID,     // 19 do not remove; used in DeleteEventHelper
     };
     private static final int EVENT_INDEX_ID = 0;
     private static final int EVENT_INDEX_TITLE = 1;
@@ -189,6 +190,8 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
     private static final int EVENT_INDEX_HAS_ALARM = 14;
     private static final int EVENT_INDEX_MAX_REMINDERS = 15;
     private static final int EVENT_INDEX_ALLOWED_REMINDERS = 16;
+    private static final int EVENT_INDEX_CUSTOM_APP_PACKAGE = 17;
+    private static final int EVENT_INDEX_CUSTOM_APP_URI = 18;
 
 
     private static final String[] ATTENDEES_PROJECTION = new String[] {
@@ -197,12 +200,16 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         Attendees.ATTENDEE_EMAIL,           // 2
         Attendees.ATTENDEE_RELATIONSHIP,    // 3
         Attendees.ATTENDEE_STATUS,          // 4
+        Attendees.ATTENDEE_IDENTITY,        // 5
+        Attendees.ATTENDEE_ID_NAMESPACE     // 6
     };
     private static final int ATTENDEES_INDEX_ID = 0;
     private static final int ATTENDEES_INDEX_NAME = 1;
     private static final int ATTENDEES_INDEX_EMAIL = 2;
     private static final int ATTENDEES_INDEX_RELATIONSHIP = 3;
     private static final int ATTENDEES_INDEX_STATUS = 4;
+    private static final int ATTENDEES_INDEX_IDENTITY = 5;
+    private static final int ATTENDEES_INDEX_ID_NAMESPACE = 6;
 
     private static final String ATTENDEES_WHERE = Attendees.EVENT_ID + "=?";
 
@@ -224,14 +231,21 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         Calendars._ID,           // 0
         Calendars.CALENDAR_DISPLAY_NAME,  // 1
         Calendars.OWNER_ACCOUNT, // 2
-        Calendars.CAN_ORGANIZER_RESPOND // 3
+        Calendars.CAN_ORGANIZER_RESPOND, // 3
+        Calendars.ACCOUNT_NAME // 4
     };
     static final int CALENDARS_INDEX_DISPLAY_NAME = 1;
     static final int CALENDARS_INDEX_OWNER_ACCOUNT = 2;
     static final int CALENDARS_INDEX_OWNER_CAN_RESPOND = 3;
+    static final int CALENDARS_INDEX_ACCOUNT_NAME = 4;
 
     static final String CALENDARS_WHERE = Calendars._ID + "=?";
     static final String CALENDARS_DUPLICATE_NAME_WHERE = Calendars.CALENDAR_DISPLAY_NAME + "=?";
+
+    private static final String NANP_ALLOWED_SYMBOLS = "()+-*#.";
+    private static final int NANP_MIN_DIGITS = 7;
+    private static final int NANP_MAX_DIGITS = 11;
+
 
     private View mView;
 
@@ -244,14 +258,19 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
 
     private static float mScale = 0; // Used for supporting different screen densities
 
+    private static int mCustomAppIconSize = 32;
+
     private long mStartMillis;
     private long mEndMillis;
     private boolean mAllDay;
 
     private boolean mHasAttendeeData;
+    private String mEventOrganizerEmail;
+    private String mEventOrganizerDisplayName = "";
     private boolean mIsOrganizer;
     private long mCalendarOwnerAttendeeId = EditEventHelper.ATTENDEE_ID_NONE;
     private boolean mOwnerCanRespond;
+    private String mSyncAccountName;
     private String mCalendarOwnerAccount;
     private boolean mCanModifyCalendar;
     private boolean mCanModifyEvent;
@@ -263,8 +282,8 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
     private DeleteEventHelper mDeleteHelper;
 
     private int mOriginalAttendeeResponse;
-    private int mAttendeeResponseFromIntent = CalendarController.ATTENDEE_NO_RESPONSE;
-    private int mUserSetResponse = CalendarController.ATTENDEE_NO_RESPONSE;
+    private int mAttendeeResponseFromIntent = Attendees.ATTENDEE_STATUS_NONE;
+    private int mUserSetResponse = Attendees.ATTENDEE_STATUS_NONE;
     private boolean mIsRepeating;
     private boolean mHasAlarm;
     private int mMaxReminders;
@@ -273,14 +292,21 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
     private boolean mEventDeletionStarted = false;
 
     private TextView mTitle;
-    private TextView mWhenDate;
-    private TextView mWhenTime;
+    private TextView mWhenDateTime;
     private TextView mWhere;
     private ExpandableTextView mDesc;
     private AttendeesView mLongAttendees;
     private Menu mMenu = null;
     private View mHeadlines;
     private ScrollView mScrollView;
+    private View mLoadingMsgView;
+    private ObjectAnimator mAnimateAlpha;
+    private long mLoadingMsgStartTime;
+    private static final int FADE_IN_TIME = 300;   // in milliseconds
+    private static final int LOADING_MSG_DELAY = 600;   // in milliseconds
+    private static final int LOADING_MSG_MIN_DISPLAY_TIME = 600;
+    private boolean mNoCrossFade = false;  // Used to prevent repeated cross-fade
+
 
     private static final Pattern mWildcardPattern = Pattern.compile("^.*$");
 
@@ -288,11 +314,13 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
     ArrayList<Attendee> mDeclinedAttendees = new ArrayList<Attendee>();
     ArrayList<Attendee> mTentativeAttendees = new ArrayList<Attendee>();
     ArrayList<Attendee> mNoResponseAttendees = new ArrayList<Attendee>();
+    ArrayList<String> mToEmails = new ArrayList<String>();
+    ArrayList<String> mCcEmails = new ArrayList<String>();
     private int mColor;
 
 
     private int mDefaultReminderMinutes;
-    private ArrayList<LinearLayout> mReminderViews = new ArrayList<LinearLayout>(0);
+    private final ArrayList<LinearLayout> mReminderViews = new ArrayList<LinearLayout>(0);
     public ArrayList<ReminderEntry> mReminders;
     public ArrayList<ReminderEntry> mOriginalReminders = new ArrayList<ReminderEntry>();
     public ArrayList<ReminderEntry> mUnsupportedReminders = new ArrayList<ReminderEntry>();
@@ -316,10 +344,22 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
     private QueryHandler mHandler;
 
 
-    private Runnable mTZUpdater = new Runnable() {
+    private final Runnable mTZUpdater = new Runnable() {
         @Override
         public void run() {
             updateEvent(mView);
+        }
+    };
+
+    private final Runnable mLoadingMsgAlphaUpdater = new Runnable() {
+        @Override
+        public void run() {
+            // Since this is run after a delay, make sure to only show the message
+            // if the event's data is not shown yet.
+            if (!mAnimateAlpha.isRunning() && mScrollView.getAlpha() == 0) {
+                mLoadingMsgStartTime = System.currentTimeMillis();
+                mLoadingMsgView.setAlpha(1);
+            }
         }
     };
 
@@ -432,8 +472,25 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
             }
             cursor.close();
             sendAccessibilityEventIfQueryDone(token);
+            // All queries are done, show the view
+            if (mCurrentQuery == TOKEN_QUERY_ALL) {
+                if (mLoadingMsgView.getAlpha() == 1) {
+                    // Loading message is showing, let it stay a bit more (to prevent
+                    // flashing) by adding a start delay to the event animation
+                    long timeDiff = LOADING_MSG_MIN_DISPLAY_TIME - (System.currentTimeMillis() -
+                            mLoadingMsgStartTime);
+                    if (timeDiff > 0) {
+                        mAnimateAlpha.setStartDelay(timeDiff);
+                    }
+                }
+                if (!mAnimateAlpha.isRunning() &&!mAnimateAlpha.isStarted() && !mNoCrossFade) {
+                    mAnimateAlpha.start();
+                } else {
+                    mScrollView.setAlpha(1);
+                    mLoadingMsgView.setVisibility(View.GONE);
+                }
+            }
         }
-
     }
 
     private void sendAccessibilityEventIfQueryDone(int token) {
@@ -446,20 +503,18 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
     public EventInfoFragment(Context context, Uri uri, long startMillis, long endMillis,
             int attendeeResponse, boolean isDialog, int windowStyle) {
 
-        if (isDialog) {
-            Resources r = context.getResources();
-
-            mDialogWidth = r.getInteger(R.integer.event_info_dialog_width);
-            mDialogHeight = r.getInteger(R.integer.event_info_dialog_height);
-
-            if (mScale == 0) {
-                mScale = context.getResources().getDisplayMetrics().density;
-                if (mScale != 1) {
-                    mDialogWidth *= mScale;
-                    mDialogHeight *= mScale;
+        Resources r = context.getResources();
+        if (mScale == 0) {
+            mScale = context.getResources().getDisplayMetrics().density;
+            if (mScale != 1) {
+                mCustomAppIconSize *= mScale;
+                if (isDialog) {
                     DIALOG_TOP_MARGIN *= mScale;
                 }
             }
+        }
+        if (isDialog) {
+            setDialogSize(r);
         }
         mIsDialog = isDialog;
 
@@ -609,9 +664,9 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
             mView = inflater.inflate(R.layout.event_info, container, false);
         }
         mScrollView = (ScrollView) mView.findViewById(R.id.event_info_scroll_view);
+        mLoadingMsgView = mView.findViewById(R.id.event_info_loading_msg);
         mTitle = (TextView) mView.findViewById(R.id.title);
-        mWhenDate = (TextView) mView.findViewById(R.id.when_date);
-        mWhenTime = (TextView) mView.findViewById(R.id.when_time);
+        mWhenDateTime = (TextView) mView.findViewById(R.id.when_datetime);
         mWhere = (TextView) mView.findViewById(R.id.where);
         mDesc = (ExpandableTextView) mView.findViewById(R.id.description);
         mHeadlines = mView.findViewById(R.id.event_info_headline);
@@ -626,33 +681,77 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
             mEndMillis = savedInstanceState.getLong(BUNDLE_KEY_END_MILLIS);
         }
 
+        mAnimateAlpha = ObjectAnimator.ofFloat(mScrollView, "Alpha", 0, 1);
+        mAnimateAlpha.setDuration(FADE_IN_TIME);
+        mAnimateAlpha.addListener(new AnimatorListenerAdapter() {
+            int defLayerType;
+
+            @Override
+            public void onAnimationStart(Animator animation) {
+                // Use hardware layer for better performance during animation
+                defLayerType = mScrollView.getLayerType();
+                mScrollView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+                // Ensure that the loading message is gone before showing the
+                // event info
+                mLoadingMsgView.removeCallbacks(mLoadingMsgAlphaUpdater);
+                mLoadingMsgView.setVisibility(View.GONE);
+            }
+
+            @Override
+            public void onAnimationCancel(Animator animation) {
+                mScrollView.setLayerType(defLayerType, null);
+            }
+
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                mScrollView.setLayerType(defLayerType, null);
+                // Do not cross fade after the first time
+                mNoCrossFade = true;
+            }
+        });
+
+        mLoadingMsgView.setAlpha(0);
+        mScrollView.setAlpha(0);
+        mLoadingMsgView.postDelayed(mLoadingMsgAlphaUpdater, LOADING_MSG_DELAY);
+
         // start loading the data
+
         mHandler.startQuery(TOKEN_QUERY_EVENT, null, mUri, EVENT_PROJECTION,
                 null, null, null);
 
-        Button b = (Button) mView.findViewById(R.id.delete);
+        View b = mView.findViewById(R.id.delete);
         b.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (!mCanModifyCalendar) {
                     return;
                 }
-                mDeleteHelper = new DeleteEventHelper(
-                        mContext, mActivity,
-                        !mIsDialog && !mIsTabletConfig /* exitWhenDone */);
+                mDeleteHelper =
+                        new DeleteEventHelper(mContext, mActivity, !mIsDialog && !mIsTabletConfig /* exitWhenDone */);
                 mDeleteHelper.setDeleteNotificationListener(EventInfoFragment.this);
                 mDeleteHelper.setOnDismissListener(createDeleteOnDismissListener());
                 mDeleteDialogVisible = true;
                 mDeleteHelper.delete(mStartMillis, mEndMillis, mEventId, -1, onDeleteRunnable);
-            }});
+            }
+        });
 
         // Hide Edit/Delete buttons if in full screen mode on a phone
         if (!mIsDialog && !mIsTabletConfig || mWindowStyle == EventInfoFragment.FULL_WINDOW_STYLE) {
             mView.findViewById(R.id.event_info_buttons_container).setVisibility(View.GONE);
         }
 
-        // Create a listener for the add reminder button
+        // Create a listener for the email guests button
+        View emailAttendeesButton = mView.findViewById(R.id.email_attendees_button);
+        if (emailAttendeesButton != null) {
+            emailAttendeesButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    emailAttendees();
+                }
+            });
+        }
 
+        // Create a listener for the add reminder button
         View reminderAddButton = mView.findViewById(R.id.reminder_add);
         View.OnClickListener addReminderOnClickListener = new View.OnClickListener() {
             @Override
@@ -674,7 +773,7 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         return mView;
     }
 
-    private Runnable onDeleteRunnable = new Runnable() {
+    private final Runnable onDeleteRunnable = new Runnable() {
         @Override
         public void run() {
             if (EventInfoFragment.this.mIsPaused) {
@@ -717,7 +816,7 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
 
     @SuppressWarnings("fallthrough")
     private void initAttendeesCursor(View view) {
-        mOriginalAttendeeResponse = CalendarController.ATTENDEE_NO_RESPONSE;
+        mOriginalAttendeeResponse = Attendees.ATTENDEE_STATUS_NONE;
         mCalendarOwnerAttendeeId = EditEventHelper.ATTENDEE_ID_NONE;
         mNumOfAttendees = 0;
         if (mAttendeesCursor != null) {
@@ -733,30 +832,51 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
                     String name = mAttendeesCursor.getString(ATTENDEES_INDEX_NAME);
                     String email = mAttendeesCursor.getString(ATTENDEES_INDEX_EMAIL);
 
+                    if (mAttendeesCursor.getInt(ATTENDEES_INDEX_RELATIONSHIP) ==
+                            Attendees.RELATIONSHIP_ORGANIZER) {
+
+                        // Overwrites the one from Event table if available
+                        if (!TextUtils.isEmpty(name)) {
+                            mEventOrganizerDisplayName = name;
+                            if (!mIsOrganizer) {
+                                setVisibilityCommon(view, R.id.organizer_container, View.VISIBLE);
+                                setTextCommon(view, R.id.organizer, mEventOrganizerDisplayName);
+                            }
+                        }
+                    }
+
                     if (mCalendarOwnerAttendeeId == EditEventHelper.ATTENDEE_ID_NONE &&
                             mCalendarOwnerAccount.equalsIgnoreCase(email)) {
                         mCalendarOwnerAttendeeId = mAttendeesCursor.getInt(ATTENDEES_INDEX_ID);
                         mOriginalAttendeeResponse = mAttendeesCursor.getInt(ATTENDEES_INDEX_STATUS);
                     } else {
+                        String identity = mAttendeesCursor.getString(ATTENDEES_INDEX_IDENTITY);
+                        String idNamespace = mAttendeesCursor.getString(
+                                ATTENDEES_INDEX_ID_NAMESPACE);
+
                         // Don't show your own status in the list because:
                         //  1) it doesn't make sense for event without other guests.
                         //  2) there's a spinner for that for events with guests.
                         switch(status) {
                             case Attendees.ATTENDEE_STATUS_ACCEPTED:
                                 mAcceptedAttendees.add(new Attendee(name, email,
-                                        Attendees.ATTENDEE_STATUS_ACCEPTED));
+                                        Attendees.ATTENDEE_STATUS_ACCEPTED, identity,
+                                        idNamespace));
                                 break;
                             case Attendees.ATTENDEE_STATUS_DECLINED:
                                 mDeclinedAttendees.add(new Attendee(name, email,
-                                        Attendees.ATTENDEE_STATUS_DECLINED));
+                                        Attendees.ATTENDEE_STATUS_DECLINED, identity,
+                                        idNamespace));
                                 break;
                             case Attendees.ATTENDEE_STATUS_TENTATIVE:
                                 mTentativeAttendees.add(new Attendee(name, email,
-                                        Attendees.ATTENDEE_STATUS_TENTATIVE));
+                                        Attendees.ATTENDEE_STATUS_TENTATIVE, identity,
+                                        idNamespace));
                                 break;
                             default:
                                 mNoResponseAttendees.add(new Attendee(name, email,
-                                        Attendees.ATTENDEE_STATUS_NONE));
+                                        Attendees.ATTENDEE_STATUS_NONE, identity,
+                                        idNamespace));
                         }
                     }
                 } while (mAttendeesCursor.moveToNext());
@@ -838,8 +958,10 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
 
     @Override
     public void onDestroyView() {
+
         if (!mEventDeletionStarted) {
-            if (saveResponse() || saveReminders()) {
+            boolean responseSaved = saveResponse();
+            if (saveReminders() || responseSaved) {
                 Toast.makeText(getActivity(), R.string.saving_event, Toast.LENGTH_SHORT).show();
             }
         }
@@ -1003,6 +1125,11 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
             return;
         }
 
+        Context context = view.getContext();
+        if (context == null) {
+            return;
+        }
+
         String eventName = mEventCursor.getString(EVENT_INDEX_TITLE);
         if (eventName == null || eventName.length() == 0) {
             eventName = getActivity().getString(R.string.no_title_label);
@@ -1024,76 +1151,49 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
 
         // When
         // Set the date and repeats (if any)
-        String whenDate;
-        int flagsTime = DateUtils.FORMAT_SHOW_TIME;
-        int flagsDate = DateUtils.FORMAT_SHOW_DATE | DateUtils.FORMAT_SHOW_WEEKDAY |
-                DateUtils.FORMAT_SHOW_YEAR;
+        String localTimezone = Utils.getTimeZone(mActivity, mTZUpdater);
 
-        if (DateFormat.is24HourFormat(getActivity())) {
-            flagsTime |= DateUtils.FORMAT_24HOUR;
+        Resources resources = context.getResources();
+        String displayedDatetime = Utils.getDisplayedDatetime(mStartMillis, mEndMillis,
+                System.currentTimeMillis(), localTimezone, mAllDay, context);
+
+        String displayedTimezone = null;
+        if (!mAllDay) {
+            displayedTimezone = Utils.getDisplayedTimezone(mStartMillis, localTimezone,
+                    eventTimezone);
+        }
+        // Display the datetime.  Make the timezone (if any) transparent.
+        if (displayedTimezone == null) {
+            setTextCommon(view, R.id.when_datetime, displayedDatetime);
+        } else {
+            int timezoneIndex = displayedDatetime.length();
+            displayedDatetime += "  " + displayedTimezone;
+            SpannableStringBuilder sb = new SpannableStringBuilder(displayedDatetime);
+            ForegroundColorSpan transparentColorSpan = new ForegroundColorSpan(
+                    resources.getColor(R.color.event_info_headline_transparent_color));
+            sb.setSpan(transparentColorSpan, timezoneIndex, displayedDatetime.length(),
+                    Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+            setTextCommon(view, R.id.when_datetime, sb);
         }
 
-        // Put repeat after the date (if any)
+        // Display the repeat string (if any)
         String repeatString = null;
         if (!TextUtils.isEmpty(rRule)) {
             EventRecurrence eventRecurrence = new EventRecurrence();
             eventRecurrence.parse(rRule);
-            Time date = new Time(Utils.getTimeZone(getActivity(), mTZUpdater));
+            Time date = new Time(localTimezone);
+            date.set(mStartMillis);
             if (mAllDay) {
                 date.timezone = Time.TIMEZONE_UTC;
             }
-            date.set(mStartMillis);
             eventRecurrence.setStartDate(date);
-            repeatString = EventRecurrenceFormatter.getRepeatString(
-                    getActivity().getResources(), eventRecurrence);
+            repeatString = EventRecurrenceFormatter.getRepeatString(resources, eventRecurrence);
         }
-        // If an all day event , show the date without the time
-        if (mAllDay) {
-            Formatter f = new Formatter(new StringBuilder(50), Locale.getDefault());
-            whenDate = DateUtils.formatDateRange(getActivity(), f, mStartMillis, mEndMillis,
-                    flagsDate, Time.TIMEZONE_UTC).toString();
-            if (repeatString != null) {
-                setTextCommon(view, R.id.when_date, whenDate + " (" + repeatString + ")");
-            } else {
-                setTextCommon(view, R.id.when_date, whenDate);
-            }
-            view.findViewById(R.id.when_time).setVisibility(View.GONE);
-
+        if (repeatString == null) {
+            view.findViewById(R.id.when_repeat).setVisibility(View.GONE);
         } else {
-            // Show date for none all-day events
-            whenDate = Utils.formatDateRange(getActivity(), mStartMillis, mEndMillis, flagsDate);
-            String whenTime = Utils.formatDateRange(getActivity(), mStartMillis, mEndMillis,
-                    flagsTime);
-            if (repeatString != null) {
-                setTextCommon(view, R.id.when_date, whenDate + " (" + repeatString + ")");
-            } else {
-                setTextCommon(view, R.id.when_date, whenDate);
-            }
-
-            // Show the event timezone if it is different from the local timezone after the time
-            String localTimezone = Utils.getTimeZone(mActivity, mTZUpdater);
-            if (!TextUtils.equals(localTimezone, eventTimezone)) {
-                String displayName;
-                // Figure out if this is in DST
-                Time date = new Time(Utils.getTimeZone(getActivity(), mTZUpdater));
-                if (mAllDay) {
-                    date.timezone = Time.TIMEZONE_UTC;
-                }
-                date.set(mStartMillis);
-
-                TimeZone tz = TimeZone.getTimeZone(localTimezone);
-                if (tz == null || tz.getID().equals("GMT")) {
-                    displayName = localTimezone;
-                } else {
-                    displayName = tz.getDisplayName(date.isDst != 0, TimeZone.LONG);
-                }
-                setTextCommon(view, R.id.when_time, whenTime + " (" + displayName + ")");
-            }
-            else {
-                setTextCommon(view, R.id.when_time, whenTime);
-            }
+            setTextCommon(view, R.id.when_repeat, repeatString);
         }
-
 
         // Organizer view is setup in the updateCalendar method
 
@@ -1106,7 +1206,12 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
             if (textView != null) {
                 textView.setAutoLinkMask(0);
                 textView.setText(location.trim());
-                linkifyTextView(textView);
+                try {
+                    linkifyTextView(textView);
+                } catch (Exception ex) {
+                    // unexpected
+                    Log.e(TAG, "Linkification failed", ex);
+                }
 
                 textView.setOnTouchListener(new OnTouchListener() {
                     @Override
@@ -1126,6 +1231,198 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         if (description != null && description.length() != 0) {
             mDesc.setText(description);
         }
+
+        // Launch Custom App
+        updateCustomAppButton();
+    }
+
+    private void updateCustomAppButton() {
+        buttonSetup: {
+            final Button launchButton = (Button) mView.findViewById(R.id.launch_custom_app_button);
+            if (launchButton == null)
+                break buttonSetup;
+
+            final String customAppPackage = mEventCursor.getString(EVENT_INDEX_CUSTOM_APP_PACKAGE);
+            final String customAppUri = mEventCursor.getString(EVENT_INDEX_CUSTOM_APP_URI);
+
+            if (TextUtils.isEmpty(customAppPackage) || TextUtils.isEmpty(customAppUri))
+                break buttonSetup;
+
+            PackageManager pm = mContext.getPackageManager();
+            if (pm == null)
+                break buttonSetup;
+
+            ApplicationInfo info;
+            try {
+                info = pm.getApplicationInfo(customAppPackage, 0);
+                if (info == null)
+                    break buttonSetup;
+            } catch (NameNotFoundException e) {
+                break buttonSetup;
+            }
+
+            Uri uri = ContentUris.withAppendedId(Events.CONTENT_URI, mEventId);
+            final Intent intent = new Intent(CalendarContract.ACTION_HANDLE_CUSTOM_EVENT, uri);
+            intent.setPackage(customAppPackage);
+            intent.putExtra(CalendarContract.EXTRA_CUSTOM_APP_URI, customAppUri);
+            intent.putExtra(EXTRA_EVENT_BEGIN_TIME, mStartMillis);
+
+            // See if we have a taker for our intent
+            if (pm.resolveActivity(intent, 0) == null)
+                break buttonSetup;
+
+            Drawable icon = pm.getApplicationIcon(info);
+            if (icon != null) {
+
+                Drawable[] d = launchButton.getCompoundDrawables();
+                icon.setBounds(0, 0, mCustomAppIconSize, mCustomAppIconSize);
+                launchButton.setCompoundDrawables(icon, d[1], d[2], d[3]);
+            }
+
+            CharSequence label = pm.getApplicationLabel(info);
+            if (label != null && label.length() != 0) {
+                launchButton.setText(label);
+            } else if (icon == null) {
+                // No icon && no label. Hide button?
+                break buttonSetup;
+            }
+
+            // Launch custom app
+            launchButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    try {
+                        startActivityForResult(intent, 0);
+                    } catch (ActivityNotFoundException e) {
+                        // Shouldn't happen as we checked it already
+                        setVisibilityCommon(mView, R.id.launch_custom_app_container, View.GONE);
+                    }
+                }
+            });
+
+            setVisibilityCommon(mView, R.id.launch_custom_app_container, View.VISIBLE);
+            return;
+
+        }
+
+        setVisibilityCommon(mView, R.id.launch_custom_app_container, View.GONE);
+        return;
+    }
+
+    /**
+     * Finds North American Numbering Plan (NANP) phone numbers in the input text.
+     *
+     * @param text The text to scan.
+     * @return A list of [start, end) pairs indicating the positions of phone numbers in the input.
+     */
+    // @VisibleForTesting
+    static int[] findNanpPhoneNumbers(CharSequence text) {
+        ArrayList<Integer> list = new ArrayList<Integer>();
+
+        int startPos = 0;
+        int endPos = text.length() - NANP_MIN_DIGITS + 1;
+        if (endPos < 0) {
+            return new int[] {};
+        }
+
+        /*
+         * We can't just strip the whitespace out and crunch it down, because the whitespace
+         * is significant.  March through, trying to figure out where numbers start and end.
+         */
+        while (startPos < endPos) {
+            // skip whitespace
+            while (Character.isWhitespace(text.charAt(startPos)) && startPos < endPos) {
+                startPos++;
+            }
+            if (startPos == endPos) {
+                break;
+            }
+
+            // check for a match at this position
+            int matchEnd = findNanpMatchEnd(text, startPos);
+            if (matchEnd > startPos) {
+                list.add(startPos);
+                list.add(matchEnd);
+                startPos = matchEnd;    // skip past match
+            } else {
+                // skip to next whitespace char
+                while (!Character.isWhitespace(text.charAt(startPos)) && startPos < endPos) {
+                    startPos++;
+                }
+            }
+        }
+
+        int[] result = new int[list.size()];
+        for (int i = list.size() - 1; i >= 0; i--) {
+            result[i] = list.get(i);
+        }
+        return result;
+    }
+
+    /**
+     * Checks to see if there is a valid phone number in the input, starting at the specified
+     * offset.  If so, the index of the last character + 1 is returned.  The input is assumed
+     * to begin with a non-whitespace character.
+     *
+     * @return Exclusive end position, or -1 if not a match.
+     */
+    private static int findNanpMatchEnd(CharSequence text, int startPos) {
+        /*
+         * A few interesting cases:
+         *   94043                              # too short, ignore
+         *   123456789012                       # too long, ignore
+         *   +1 (650) 555-1212                  # 11 digits, spaces
+         *   (650) 555-1212, (650) 555-1213     # two numbers, return first
+         *   1-650-555-1212                     # 11 digits with leading '1'
+         *   *#650.555.1212#*!                  # 10 digits, include #*, ignore trailing '!'
+         *   555.1212                           # 7 digits
+         *
+         * For the most part we want to break on whitespace, but it's common to leave a space
+         * between the initial '1' and/or after the area code.
+         */
+
+        int endPos = text.length();
+        int curPos = startPos;
+        int foundDigits = 0;
+        char firstDigit = 'x';
+
+        while (curPos <= endPos) {
+            char ch;
+            if (curPos < endPos) {
+                ch = text.charAt(curPos);
+            } else {
+                ch = 27;    // fake invalid symbol at end to trigger loop break
+            }
+
+            if (Character.isDigit(ch)) {
+                if (foundDigits == 0) {
+                    firstDigit = ch;
+                }
+                foundDigits++;
+                if (foundDigits > NANP_MAX_DIGITS) {
+                    // too many digits, stop early
+                    return -1;
+                }
+            } else if (Character.isWhitespace(ch)) {
+                if (!(  (firstDigit == '1' && (foundDigits == 1 || foundDigits == 4)) ||
+                        (foundDigits == 3)) ) {
+                    break;
+                }
+            } else if (NANP_ALLOWED_SYMBOLS.indexOf(ch) == -1) {
+                break;
+            }
+            // else it's an allowed symbol
+
+            curPos++;
+        }
+
+        if ((firstDigit != '1' && (foundDigits == 7 || foundDigits == 10)) ||
+                (firstDigit == '1' && foundDigits == 11)) {
+            // match
+            return curPos;
+        }
+
+        return -1;
     }
 
     /**
@@ -1156,8 +1453,20 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
          */
 
         /*
+         * If we're in the US, handle this specially.  Otherwise, punt to Linkify.
+         */
+        String defaultPhoneRegion = System.getProperty("user.region", "US");
+        if (!defaultPhoneRegion.equals("US")) {
+            Linkify.addLinks(textView, Linkify.ALL);
+            return;
+        }
+
+        /*
          * Start by letting Linkify find anything that isn't a phone number.  We have to let it
          * run first because every invocation removes all previous URLSpan annotations.
+         *
+         * Ideally we'd use the external/libphonenumber routines, but those aren't available
+         * to unbundled applications.
          */
         boolean linkifyFoundLinks = Linkify.addLinks(textView,
                 Linkify.ALL & ~(Linkify.PHONE_NUMBERS));
@@ -1165,116 +1474,82 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         /*
          * Search for phone numbers.
          *
-         * The "leniency" value can be VALID or POSSIBLE.  With VALID we won't match NANP numbers
-         * shorter than 10 digits, which is inconvenient.  With POSSIBLE we get NANP 7-digit
-         * numbers, and possibly strings of digits inside URIs, but happily we don't flag
-         * five-digit zip codes like Linkify does.
-         *
-         * Phone links inside URIs will be annotated by the earlier URI linkification, so we just
-         * need to avoid creating overlapping spans.
+         * Some URIs contain strings of digits that look like phone numbers.  If both the URI
+         * scanner and the phone number scanner find them, we want the URI link to win.  Since
+         * the URI scanner runs first, we just need to avoid creating overlapping spans.
          */
-        String defaultPhoneRegion = System.getProperty("user.region", "US");
-        boolean usRegion = "US".equalsIgnoreCase(defaultPhoneRegion);
+        CharSequence text = textView.getText();
+        int[] phoneSequences = findNanpPhoneNumbers(text);
+
+        /*
+         * If the contents of the TextView are already Spannable (which will be the case if
+         * Linkify found stuff, but might not be otherwise), we can just add annotations
+         * to what's there.  If it's not, and we find phone numbers, we need to convert it to
+         * a Spannable form.  (This mimics the behavior of Linkable.addLinks().)
+         */
+        Spannable spanText;
+        if (text instanceof SpannableString) {
+            spanText = (SpannableString) text;
+        } else {
+            spanText = SpannableString.valueOf(text);
+        }
+
+        /*
+         * Get a list of any spans created by Linkify, for the overlapping span check.
+         */
+        URLSpan[] existingSpans = spanText.getSpans(0, spanText.length(), URLSpan.class);
+
+        /*
+         * Insert spans for the numbers we found.  We generate "tel:" URIs.
+         */
         int phoneCount = 0;
+        for (int match = 0; match < phoneSequences.length / 2; match++) {
+            int start = phoneSequences[match*2];
+            int end = phoneSequences[match*2 + 1];
 
-        // For US region, use the phone lib to detect numbers
-        // For non-US, skip the phone number detection if links are found already.
-        if (usRegion || !linkifyFoundLinks) {
-            PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
-            CharSequence text = textView.getText();
-            Iterable<PhoneNumberMatch> phoneIterable = phoneUtil.findNumbers(text,
-                    defaultPhoneRegion, PhoneNumberUtil.Leniency.POSSIBLE, Long.MAX_VALUE);
-
-            /*
-             * If the contents of the TextView are already Spannable (which will be the case if
-             * Linkify found stuff, but might not be otherwise), we can just add annotations
-             * to what's there.  If it's not, and we find phone numbers, we need to convert it to
-             * a Spannable form.  (This mimics the behavior of Linkable.addLinks().)
-             */
-            Spannable spanText;
-            if (text instanceof SpannableString) {
-                spanText = (SpannableString) text;
-            } else {
-                spanText = SpannableString.valueOf(text);
+            if (spanWillOverlap(spanText, existingSpans, start, end)) {
+                if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                    CharSequence seq = text.subSequence(start, end);
+                    Log.v(TAG, "Not linkifying " + seq + " as phone number due to overlap");
+                }
+                continue;
             }
 
             /*
-             * Get a list of any spans created by Linkify, for the overlapping span check.
+             * The Linkify code takes the matching span and strips out everything that isn't a
+             * digit or '+' sign.  We do the same here.  Extension numbers will get appended
+             * without a separator, but the dialer wasn't doing anything useful with ";ext="
+             * anyway.
              */
-            URLSpan[] existingSpans = spanText.getSpans(0, spanText.length(), URLSpan.class);
 
-            /*
-             * Insert spans for the numbers we found.  We generate "tel:" URIs.
-             */
-            for (PhoneNumberMatch match : phoneIterable) {
-                int start = match.start();
-                int end = match.end();
-
-                // For non-US region, stop processing if the match doesn't
-                // include the entire text. Should be in there at most once.
-                if (!usRegion && (start != 0 || end != text.length())) {
-                    break;
+            //String dialStr = phoneUtil.format(match.number(),
+            //        PhoneNumberUtil.PhoneNumberFormat.RFC3966);
+            StringBuilder dialBuilder = new StringBuilder();
+            for (int i = start; i < end; i++) {
+                char ch = spanText.charAt(i);
+                if (ch == '+' || Character.isDigit(ch)) {
+                    dialBuilder.append(ch);
                 }
+            }
+            URLSpan span = new URLSpan("tel:" + dialBuilder.toString());
 
-                if (spanWillOverlap(spanText, existingSpans, start, end)) {
-                    if (Log.isLoggable(TAG, Log.VERBOSE)) {
-                        Log.v(TAG, "Not linkifying " + match.number().getNationalNumber() +
-                                " as phone number due to overlap");
-                    }
-                    continue;
-                }
+            spanText.setSpan(span, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            phoneCount++;
+        }
 
-                /*
-                 * A quick comparison of PhoneNumberUtil number parsing & formatting, with
-                 * defaultRegion="US":
-                 *
-                 * Input string     RFC3966                     NATIONAL
-                 * 5551212          +1-5551212                  555-1212
-                 * 6505551212       +1-650-555-1212             (650) 555-1212
-                 * 6505551212x123   +1-650-555-1212;ext=123     (650) 555-1212 ext. 123
-                 * +41446681800     +41-44-668-18-00            044 668 18 00
-                 *
-                 * The conversion of NANP 7-digit numbers to RFC3966 is not compatible with our
-                 * dialer (which tries to dial 8 digits, and fails).  So that won't work.
-                 *
-                 * The conversion of the Swiss number to NATIONAL format loses the country code,
-                 * so that won't work.
-                 *
-                 * The Linkify code takes the matching span and strips out everything that isn't a
-                 * digit or '+' sign.  We do the same here.  Extension numbers will get appended
-                 * without a separator, but the dialer wasn't doing anything useful with ";ext="
-                 * anyway.
-                 */
-
-                //String dialStr = phoneUtil.format(match.number(),
-                //        PhoneNumberUtil.PhoneNumberFormat.RFC3966);
-                StringBuilder dialBuilder = new StringBuilder();
-                for (int i = start; i < end; i++) {
-                    char ch = spanText.charAt(i);
-                    if (ch == '+' || Character.isDigit(ch)) {
-                        dialBuilder.append(ch);
-                    }
-                }
-                URLSpan span = new URLSpan("tel:" + dialBuilder.toString());
-
-                spanText.setSpan(span, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                phoneCount++;
+        if (phoneCount != 0) {
+            // If we had to "upgrade" to Spannable, store the object into the TextView.
+            if (spanText != text) {
+                textView.setText(spanText);
             }
 
-            if (phoneCount != 0) {
-                // If we had to "upgrade" to Spannable, store the object into the TextView.
-                if (spanText != text) {
-                    textView.setText(spanText);
-                }
+            // Linkify.addLinks() sets the TextView movement method if it finds any links.  We
+            // want to do the same here.  (This is cloned from Linkify.addLinkMovementMethod().)
+            MovementMethod mm = textView.getMovementMethod();
 
-                // Linkify.addLinks() sets the TextView movement method if it finds any links.  We
-                // want to do the same here.  (This is cloned from Linkify.addLinkMovementMethod().)
-                MovementMethod mm = textView.getMovementMethod();
-
-                if ((mm == null) || !(mm instanceof LinkMovementMethod)) {
-                    if (textView.getLinksClickable()) {
-                        textView.setMovementMethod(LinkMovementMethod.getInstance());
-                    }
+            if ((mm == null) || !(mm instanceof LinkMovementMethod)) {
+                if (textView.getLinksClickable()) {
+                    textView.setMovementMethod(LinkMovementMethod.getInstance());
                 }
             }
         }
@@ -1321,8 +1596,7 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         List<CharSequence> text = event.getText();
 
         addFieldToAccessibilityEvent(text, mTitle, null);
-        addFieldToAccessibilityEvent(text, mWhenDate, null);
-        addFieldToAccessibilityEvent(text, mWhenTime, null);
+        addFieldToAccessibilityEvent(text, mWhenDateTime, null);
         addFieldToAccessibilityEvent(text, mWhere, null);
         addFieldToAccessibilityEvent(text, null, mDesc);
 
@@ -1365,6 +1639,7 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
             String tempAccount = mCalendarsCursor.getString(CALENDARS_INDEX_OWNER_ACCOUNT);
             mCalendarOwnerAccount = (tempAccount == null) ? "" : tempAccount;
             mOwnerCanRespond = mCalendarsCursor.getInt(CALENDARS_INDEX_OWNER_CAN_RESPOND) != 0;
+            mSyncAccountName = mCalendarsCursor.getString(CALENDARS_INDEX_ACCOUNT_NAME);
 
             String displayName = mCalendarsCursor.getString(CALENDARS_INDEX_DISPLAY_NAME);
 
@@ -1373,10 +1648,16 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
                     CALENDARS_PROJECTION, CALENDARS_DUPLICATE_NAME_WHERE,
                     new String[] {displayName}, null);
 
-            String eventOrganizer = mEventCursor.getString(EVENT_INDEX_ORGANIZER);
-            mIsOrganizer = mCalendarOwnerAccount.equalsIgnoreCase(eventOrganizer);
-            setTextCommon(view, R.id.organizer, eventOrganizer);
-            if (!mIsOrganizer) {
+            mEventOrganizerEmail = mEventCursor.getString(EVENT_INDEX_ORGANIZER);
+            mIsOrganizer = mCalendarOwnerAccount.equalsIgnoreCase(mEventOrganizerEmail);
+
+            if (!TextUtils.isEmpty(mEventOrganizerEmail) &&
+                    !mEventOrganizerEmail.endsWith(Utils.MACHINE_GENERATED_ADDRESS)) {
+                mEventOrganizerDisplayName = mEventOrganizerEmail;
+            }
+
+            if (!mIsOrganizer && !TextUtils.isEmpty(mEventOrganizerDisplayName)) {
+                setTextCommon(view, R.id.organizer, mEventOrganizerDisplayName);
                 setVisibilityCommon(view, R.id.organizer_container, View.VISIBLE);
             } else {
                 setVisibilityCommon(view, R.id.organizer_container, View.GONE);
@@ -1390,7 +1671,8 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
                     mEventCursor.getInt(EVENT_INDEX_ACCESS_LEVEL) == Calendars.CAL_ACCESS_FREEBUSY;
 
             if (!mIsBusyFreeCalendar) {
-                Button b = (Button) mView.findViewById(R.id.edit);
+
+                View b = mView.findViewById(R.id.edit);
                 b.setEnabled(true);
                 b.setOnClickListener(new OnClickListener() {
                     @Override
@@ -1408,20 +1690,21 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
                 });
             }
             View button;
-            if (!mCanModifyCalendar) {
+            if (mCanModifyCalendar) {
                 button = mView.findViewById(R.id.delete);
                 if (button != null) {
-                    button.setEnabled(false);
-                    button.setVisibility(View.GONE);
+                    button.setEnabled(true);
+                    button.setVisibility(View.VISIBLE);
                 }
             }
-            if (!mCanModifyEvent) {
+            if (mCanModifyEvent) {
                 button = mView.findViewById(R.id.edit);
                 if (button != null) {
-                    button.setEnabled(false);
-                    button.setVisibility(View.GONE);
+                    button.setEnabled(true);
+                    button.setVisibility(View.VISIBLE);
                 }
             }
+
             if ((!mIsDialog && !mIsTabletConfig ||
                     mWindowStyle == EventInfoFragment.FULL_WINDOW_STYLE) && mMenu != null) {
                 mActivity.invalidateOptionsMenu();
@@ -1463,6 +1746,49 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
             mLongAttendees.setVisibility(View.VISIBLE);
         } else {
             mLongAttendees.setVisibility(View.GONE);
+        }
+
+        updateEmailAttendees();
+    }
+
+    /**
+     * Initializes the list of 'to' and 'cc' emails from the attendee list.
+     */
+    private void updateEmailAttendees() {
+        // The declined attendees will go in the 'cc' line, all others will go in the 'to' line.
+        mToEmails = new ArrayList<String>();
+        for (Attendee attendee : mAcceptedAttendees) {
+            addIfEmailable(mToEmails, attendee.mEmail);
+        }
+        for (Attendee attendee : mTentativeAttendees) {
+            addIfEmailable(mToEmails, attendee.mEmail);
+        }
+        for (Attendee attendee : mNoResponseAttendees) {
+            addIfEmailable(mToEmails, attendee.mEmail);
+        }
+        mCcEmails = new ArrayList<String>();
+        for (Attendee attendee : this.mDeclinedAttendees) {
+            addIfEmailable(mCcEmails, attendee.mEmail);
+        }
+
+        // The meeting organizer doesn't appear as an attendee sometimes (particularly
+        // when viewing someone else's calendar), so add the organizer now.
+        if (mEventOrganizerEmail != null && !mToEmails.contains(mEventOrganizerEmail) &&
+                !mCcEmails.contains(mEventOrganizerEmail)) {
+            addIfEmailable(mToEmails, mEventOrganizerEmail);
+        }
+
+        // The Email app behaves strangely when there is nothing in the 'mailto' part,
+        // so move all the 'cc' emails to the 'to' list.  Gmail works fine though.
+        if (mToEmails.size() <= 0 && mCcEmails.size() > 0) {
+            mToEmails.addAll(mCcEmails);
+            mCcEmails.clear();
+        }
+
+        if (mToEmails.size() <= 0) {
+            setVisibilityCommon(mView, R.id.email_attendees_container, View.GONE);
+        } else {
+            setVisibilityCommon(mView, R.id.email_attendees_container, View.VISIBLE);
         }
     }
 
@@ -1516,47 +1842,8 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
                         mReminderMinuteValues, mReminderMinuteLabels, mReminderMethodValues,
                         mReminderMethodLabels, re, Integer.MAX_VALUE, mReminderChangeListener);
             }
+            EventViewUtils.updateAddReminderButton(mView, mReminderViews, mMaxReminders);
             // TODO show unsupported reminder types in some fashion.
-        }
-    }
-
-    private void formatAttendees(ArrayList<Attendee> attendees, SpannableStringBuilder sb, int type) {
-        if (attendees.size() <= 0) {
-            return;
-        }
-
-        int begin = sb.length();
-        boolean firstTime = sb.length() == 0;
-
-        if (firstTime == false) {
-            begin += 2; // skip over the ", " for formatting.
-        }
-
-        for (Attendee attendee : attendees) {
-            if (firstTime) {
-                firstTime = false;
-            } else {
-                sb.append(", ");
-            }
-
-            String name = attendee.getDisplayName();
-            sb.append(name);
-        }
-
-        switch (type) {
-            case Attendees.ATTENDEE_STATUS_ACCEPTED:
-                break;
-            case Attendees.ATTENDEE_STATUS_DECLINED:
-                sb.setSpan(new StrikethroughSpan(), begin, sb.length(),
-                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                // fall through
-            default:
-                // The last INCLUSIVE causes the foreground color to be applied
-                // to the rest of the span. If not, the comma at the end of the
-                // declined or tentative may be black.
-                sb.setSpan(new ForegroundColorSpan(0xFF999999), begin, sb.length(),
-                        Spannable.SPAN_EXCLUSIVE_INCLUSIVE);
-                break;
         }
     }
 
@@ -1583,9 +1870,9 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
 
 
         int response;
-        if (mUserSetResponse != CalendarController.ATTENDEE_NO_RESPONSE) {
+        if (mUserSetResponse != Attendees.ATTENDEE_STATUS_NONE) {
             response = mUserSetResponse;
-        } else if (mAttendeeResponseFromIntent != CalendarController.ATTENDEE_NO_RESPONSE) {
+        } else if (mAttendeeResponseFromIntent != Attendees.ATTENDEE_STATUS_NONE) {
             response = mAttendeeResponseFromIntent;
         } else {
             response = mOriginalAttendeeResponse;
@@ -1665,6 +1952,10 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
     @Override
     public void onResume() {
         super.onResume();
+        if (mIsDialog) {
+            setDialogSize(getActivity().getResources());
+            applyDialogParams();
+        }
         mIsPaused = false;
         if (mDismissOnResume) {
             mHandler.post(onDeleteRunnable);
@@ -1692,12 +1983,14 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
     public void handleEvent(EventInfo event) {
         if (event.eventType == EventType.EVENTS_CHANGED && mHandler != null) {
             // reload the data
-            mHandler.startQuery(TOKEN_QUERY_EVENT, null, mUri, EVENT_PROJECTION,
-                    null, null, null);
+            reloadEvents();
         }
-
     }
 
+    public void reloadEvents() {
+        mHandler.startQuery(TOKEN_QUERY_EVENT, null, mUri, EVENT_PROJECTION,
+                null, null, null);
+    }
 
     @Override
     public void onClick(View view) {
@@ -1708,6 +2001,7 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
         parent.removeView(reminderItem);
         mReminderViews.remove(reminderItem);
         mUserModifiedReminders = true;
+        EventViewUtils.updateAddReminderButton(mView, mReminderViews, mMaxReminders);
     }
 
 
@@ -1730,8 +2024,9 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
                     mReminderMethodLabels, ReminderEntry.valueOf(mDefaultReminderMinutes),
                     mMaxReminders, mReminderChangeListener);
         }
-    }
 
+        EventViewUtils.updateAddReminderButton(mView, mReminderViews, mMaxReminders);
+    }
 
     synchronized private void prepareReminders() {
         // Nothing to do if we've already built these lists _and_ we aren't
@@ -1799,6 +2094,30 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
     }
 
     /**
+     * Adds the attendee's email to the list if:
+     *   (1) the attendee is not a resource like a conference room or another calendar.
+     *       Catch most of these by filtering out suffix calendar.google.com.
+     *   (2) the attendee is not the viewer, to prevent mailing himself.
+     */
+    private void addIfEmailable(ArrayList<String> emailList, String email) {
+        if (Utils.isEmailableFrom(email, mSyncAccountName)) {
+            emailList.add(email);
+        }
+    }
+
+    /**
+     * Email all the attendees of the event, except for the viewer (so as to not email
+     * himself) and resources like conference rooms.
+     */
+    private void emailAttendees() {
+        String eventTitle = (mTitle == null || mTitle.getText() == null) ? null :
+                mTitle.getText().toString();
+        Intent emailIntent = Utils.createEmailAttendeesIntent(getActivity().getResources(),
+                eventTitle, null /* body */, mToEmails, mCcEmails, mCalendarOwnerAccount);
+        startActivity(emailIntent);
+    }
+
+    /**
      * Loads an integer array asset into a list.
      */
     private static ArrayList<Integer> loadIntegerArray(Resources r, int resNum) {
@@ -1837,5 +2156,21 @@ public class EventInfoFragment extends DialogFragment implements OnCheckedChange
                     }
                 };
     }
+
+    public long getEventId() {
+        return mEventId;
+    }
+
+    public long getStartMillis() {
+        return mStartMillis;
+    }
+    public long getEndMillis() {
+        return mEndMillis;
+    }
+    private void setDialogSize(Resources r) {
+        mDialogWidth = (int)r.getDimension(R.dimen.event_info_dialog_width);
+        mDialogHeight = (int)r.getDimension(R.dimen.event_info_dialog_height);
+    }
+
 
 }

@@ -17,16 +17,17 @@ package com.android.calendar;
 
 import static android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME;
 import static android.provider.CalendarContract.EXTRA_EVENT_END_TIME;
-import static com.android.calendar.CalendarController.ATTENDEE_NO_RESPONSE;
-import static com.android.calendar.CalendarController.EVENT_ATTENDEE_RESPONSE;
+import static android.provider.CalendarContract.Attendees.ATTENDEE_STATUS;
 
 import android.app.ActionBar;
 import android.app.Activity;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.CalendarContract.Attendees;
 import android.util.Log;
 
 public class EventInfoActivity extends Activity {
@@ -41,13 +42,6 @@ public class EventInfoActivity extends Activity {
     @Override
     protected void onCreate(Bundle icicle) {
         super.onCreate(icicle);
-
-        setContentView(R.layout.simple_frame_layout);
-
-        // Get the fragment if exists
-        mInfoFragment = (EventInfoFragment)
-                getFragmentManager().findFragmentById(R.id.main_frame);
-
 
         // Get the info needed for the fragment
         Intent intent = getIntent();
@@ -64,7 +58,8 @@ public class EventInfoActivity extends Activity {
         } else if (intent != null && Intent.ACTION_VIEW.equals(intent.getAction())) {
             mStartMillis = intent.getLongExtra(EXTRA_EVENT_BEGIN_TIME, 0);
             mEndMillis = intent.getLongExtra(EXTRA_EVENT_END_TIME, 0);
-            attendeeResponse = intent.getIntExtra(EVENT_ATTENDEE_RESPONSE, ATTENDEE_NO_RESPONSE);
+            attendeeResponse = intent.getIntExtra(ATTENDEE_STATUS,
+                    Attendees.ATTENDEE_STATUS_NONE);
             Uri data = intent.getData();
             if (data != null) {
                 try {
@@ -74,6 +69,24 @@ public class EventInfoActivity extends Activity {
                 }
             }
         }
+
+        // If we do not support showing full screen event info in this configuration,
+        // close the activity and show the event in AllInOne.
+        Resources res = getResources();
+        if (!res.getBoolean(R.bool.agenda_show_event_info_full_screen)
+                && !res.getBoolean(R.bool.show_event_info_full_screen)) {
+            CalendarController.getInstance(this)
+                    .launchViewEvent(mEventId, mStartMillis, mEndMillis, attendeeResponse);
+            finish();
+            return;
+        }
+
+        setContentView(R.layout.simple_frame_layout);
+
+        // Get the fragment if exists
+        mInfoFragment = (EventInfoFragment)
+                getFragmentManager().findFragmentById(R.id.main_frame);
+
 
         // Remove the application title
         ActionBar bar = getActionBar();

@@ -19,6 +19,7 @@ package com.android.calendar.event;
 import com.android.calendar.CalendarEventModel.Attendee;
 import com.android.calendar.ContactsAsyncHelper;
 import com.android.calendar.R;
+import com.android.calendar.Utils;
 import com.android.calendar.event.EditEventHelper.AttendeeItem;
 import com.android.common.Rfc822Validator;
 
@@ -35,8 +36,10 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.provider.CalendarContract.Attendees;
 import android.provider.ContactsContract.CommonDataKinds.Email;
+import android.provider.ContactsContract.CommonDataKinds.Identity;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.Data;
+import android.provider.ContactsContract.RawContacts;
 import android.text.TextUtils;
 import android.text.util.Rfc822Token;
 import android.util.AttributeSet;
@@ -56,18 +59,15 @@ public class AttendeesView extends LinearLayout implements View.OnClickListener 
     private static final String TAG = "AttendeesView";
     private static final boolean DEBUG = false;
 
-    private static final int PRESENCE_PROJECTION_CONTACT_ID_INDEX = 0;
-    private static final int PRESENCE_PROJECTION_EMAIL_INDEX = 1;
-    private static final int PRESENCE_PROJECTION_PHOTO_ID_INDEX = 2;
+    private static final int EMAIL_PROJECTION_CONTACT_ID_INDEX = 0;
+    private static final int EMAIL_PROJECTION_CONTACT_LOOKUP_INDEX = 1;
+    private static final int EMAIL_PROJECTION_PHOTO_ID_INDEX = 2;
 
-    private static final String[] PRESENCE_PROJECTION = new String[] {
-        Email.CONTACT_ID,           // 0
-        Email.DATA,                 // 1
-        Email.PHOTO_ID,             // 2
+    private static final String[] PROJECTION = new String[] {
+        RawContacts.CONTACT_ID,     // 0
+        Contacts.LOOKUP_KEY,        // 1
+        Contacts.PHOTO_ID,          // 2
     };
-
-    private static final Uri CONTACT_DATA_WITH_PRESENCE_URI = Data.CONTENT_URI;
-    private static final String CONTACT_DATA_SELECTION = Email.DATA + " IN (?)";
 
     private final Context mContext;
     private final LayoutInflater mInflater;
@@ -95,6 +95,9 @@ public class AttendeesView extends LinearLayout implements View.OnClickListener 
     private int mNo;
     private int mMaybe;
     private int mNoResponse;
+
+    // Cache for loaded photos
+    HashMap<String, Drawable> mRecycledPhotos;
 
     public AttendeesView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -200,7 +203,18 @@ public class AttendeesView extends LinearLayout implements View.OnClickListener 
         }
         button.setOnClickListener(this);
 
-        final QuickContactBadge badge = (QuickContactBadge) view.findViewById(R.id.badge);
+        final QuickContactBadge badgeView = (QuickContactBadge) view.findViewById(R.id.badge);
+
+        Drawable badge = null;
+        // Search for photo in recycled photos
+        if (mRecycledPhotos != null) {
+            badge = mRecycledPhotos.get(item.mAttendee.mEmail);
+        }
+        if (badge != null) {
+            item.mBadge = badge;
+        }
+        badgeView.setImageDrawable(item.mBadge);
+
         if (item.mAttendee.mStatus == Attendees.ATTENDEE_STATUS_NONE) {
             item.mBadge.setAlpha(mNoResponsePhotoAlpha);
         } else {
@@ -211,9 +225,16 @@ public class AttendeesView extends LinearLayout implements View.OnClickListener 
         } else {
             item.mBadge.setColorFilter(null);
         }
-        badge.setImageDrawable(item.mBadge);
-        badge.assignContactFromEmail(item.mAttendee.mEmail, true);
-        badge.setMaxHeight(60);
+
+        // If we know the lookup-uri of the contact, it is a good idea to set this here. This
+        // allows QuickContact to be started without an extra database lookup. If we don't know
+        // the lookup uri (yet), we can set Email and QuickContact will lookup once tapped.
+        if (item.mContactLookupUri != null) {
+            badgeView.assignContactUri(item.mContactLookupUri);
+        } else {
+            badgeView.assignContactFromEmail(item.mAttendee.mEmail, true);
+        }
+        badgeView.setMaxHeight(60);
 
         return view;
     }
@@ -234,6 +255,21 @@ public class AttendeesView extends LinearLayout implements View.OnClickListener 
     }
 
     public void clearAttendees() {
+
+        // Before clearing the views, save all the badges. The updateAtendeeView will use the saved
+        // photo instead of the default badge thus prevent switching between the two while the
+        // most current photo is loaded in the background.
+        mRecycledPhotos = new HashMap<String, Drawable>  ();
+        final int size = getChildCount();
+        for (int i = 0; i < size; i++) {
+            final View view = getChildAt(i);
+            if (view instanceof TextView) { // divider
+                continue;
+            }
+            AttendeeItem attendeeItem = (AttendeeItem) view.getTag();
+            mRecycledPhotos.put(attendeeItem.mAttendee.mEmail, attendeeItem.mBadge);
+        }
+
         removeAllViews();
         mYes = 0;
         mNo = 0;
@@ -311,9 +347,23 @@ public class AttendeesView extends LinearLayout implements View.OnClickListener 
             }
         }
 
-        mPresenceQueryHandler.startQuery(item.mUpdateCounts + 1, item,
-                CONTACT_DATA_WITH_PRESENCE_URI, PRESENCE_PROJECTION, CONTACT_DATA_SELECTION,
-                new String[] { attendee.mEmail }, null);
+        Uri uri;
+        String selection = null;
+        String[] selectionArgs = null;
+        if (attendee.mIdentity != null && attendee.mIdNamespace != null) {
+            // Query by identity + namespace
+            uri = Data.CONTENT_URI;
+            selection = Data.MIMETYPE + "=? AND " + Identity.IDENTITY + "=? AND " +
+                    Identity.NAMESPACE + "=?";
+            selectionArgs = new String[] {Identity.CONTENT_ITEM_TYPE, attendee.mIdentity,
+                    attendee.mIdNamespace};
+        } else {
+            // Query by email
+            uri = Uri.withAppendedPath(Email.CONTENT_LOOKUP_URI, Uri.encode(attendee.mEmail));
+        }
+
+        mPresenceQueryHandler.startQuery(item.mUpdateCounts + 1, item, uri, PROJECTION, selection,
+                selectionArgs, null);
     }
 
     public void addAttendees(ArrayList<Attendee> attendees) {
@@ -375,40 +425,41 @@ public class AttendeesView extends LinearLayout implements View.OnClickListener 
 
             final AttendeeItem item = (AttendeeItem)cookie;
             try {
-                cursor.moveToPosition(-1);
-                boolean found = false;
-                int contactId = 0;
-                int photoId = 0;
-                while (cursor.moveToNext()) {
-                    String email = cursor.getString(PRESENCE_PROJECTION_EMAIL_INDEX);
-                    int temp = 0;
-                    temp = cursor.getInt(PRESENCE_PROJECTION_PHOTO_ID_INDEX);
-                    // A photo id must be > 0 and we only care about the contact
-                    // ID if there's a photo
-                    if (temp > 0) {
-                        photoId = temp;
-                        contactId = cursor.getInt(PRESENCE_PROJECTION_CONTACT_ID_INDEX);
-                    }
+                if (item.mUpdateCounts < queryIndex) {
+                    item.mUpdateCounts = queryIndex;
+                    if (cursor.moveToFirst()) {
+                        final long contactId = cursor.getLong(EMAIL_PROJECTION_CONTACT_ID_INDEX);
+                        final Uri contactUri =
+                                ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId);
 
-                    found = true;
-                    if (DEBUG) {
-                        Log.d(TAG, "onQueryComplete Id: " + contactId + " PhotoId: " + photoId
-                                + " Email: " + email + " updateCount:" + item.mUpdateCounts);
-                    }
-                }
-                if (found) {
+                        final String lookupKey =
+                                cursor.getString(EMAIL_PROJECTION_CONTACT_LOOKUP_INDEX);
+                        item.mContactLookupUri = Contacts.getLookupUri(contactId, lookupKey);
 
-                    if (photoId > 0 && item.mUpdateCounts < queryIndex) {
-                        item.mUpdateCounts = queryIndex;
-                        final Uri personUri = ContentUris.withAppendedId(Contacts.CONTENT_URI,
-                                contactId);
-                        // Query for this contacts picture
-                        ContactsAsyncHelper.retrieveContactPhotoAsync(
-                                mContext, item, new Runnable() {
-                                    public void run() {
-                                        updateAttendeeView(item);
-                                    }
-                                }, personUri);
+                        final long photoId = cursor.getLong(EMAIL_PROJECTION_PHOTO_ID_INDEX);
+                        // If we found a picture, start the async loading
+                        if (photoId > 0) {
+                            // Query for this contacts picture
+                            ContactsAsyncHelper.retrieveContactPhotoAsync(
+                                    mContext, item, new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            updateAttendeeView(item);
+                                        }
+                                    }, contactUri);
+                        } else {
+                            // call update view to make sure that the lookup key gets set in
+                            // the QuickContactBadge
+                            updateAttendeeView(item);
+                        }
+                    } else {
+                        // Contact not found.  For real emails, keep the QuickContactBadge with
+                        // its Email address set, so that the user can create a contact by tapping.
+                        item.mContactLookupUri = null;
+                        if (!Utils.isValidEmail(item.mAttendee.mEmail)) {
+                            item.mAttendee.mEmail = null;
+                            updateAttendeeView(item);
+                        }
                     }
                 }
             } finally {

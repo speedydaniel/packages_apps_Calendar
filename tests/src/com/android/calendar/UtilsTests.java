@@ -16,15 +16,19 @@
 
 package com.android.calendar;
 
+import com.android.calendar.CalendarUtils.TimeZoneUtils;
 
+import android.content.res.Configuration;
+import android.content.res.Resources.NotFoundException;
 import android.database.MatrixCursor;
+import android.provider.CalendarContract.CalendarCache;
+import android.test.mock.MockResources;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.test.suitebuilder.annotation.Smoke;
 import android.text.format.Time;
-import android.util.Log;
 
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Locale;
 
 import junit.framework.TestCase;
 
@@ -39,6 +43,8 @@ public class UtilsTests extends TestCase {
     HashMap<String, Boolean> mIsDuplicateName;
     HashMap<String, Boolean> mIsDuplicateNameExpected;
     MatrixCursor mDuplicateNameCursor;
+    private DbTestUtils dbUtils;
+    private final TimeZoneUtils timezoneUtils = new TimeZoneUtils(Utils.SHARED_PREFS_NAME);
 
     private static final int NAME_COLUMN = 0;
     private static final String[] DUPLICATE_NAME_COLUMNS = new String[] { "name" };
@@ -65,6 +71,67 @@ public class UtilsTests extends TestCase {
     private static final int[] WEEKS_FOR_JULIAN_MONDAYS = {1, 2};
     private static final int[] EXPECTED_JULIAN_MONDAYS = {2440592, 2440599};
 
+    private static final int NOW_MONTH = 3; // April
+    private static final int NOW_DAY = 10;
+    private static final int NOW_YEAR = 2012;
+    private static final long NOW_TIME = createTimeInMillis(5, 5, 5, NOW_DAY, NOW_MONTH, NOW_YEAR);
+    private static final String DEFAULT_TIMEZONE = Time.getCurrentTimezone();
+
+    /**
+     * Mock resources.  Add translation strings for test here.
+     */
+    private static class ResourcesForTest extends MockResources {
+        @Override
+        public String getString(int id) {
+            if (id == R.string.today) {
+                return "Today";
+            }
+            if (id == R.string.tomorrow) {
+                return "Tomorrow";
+            }
+            throw new IllegalArgumentException("unexpected resource ID: " + id);
+        }
+
+        @Override
+        public String getString(int id, Object... formatArgs) {
+            if (id == R.string.today_at_time_fmt) {
+                return String.format("Today at %s", formatArgs);
+            }
+            if (id == R.string.tomorrow_at_time_fmt) {
+                return String.format("Tomorrow at %s", formatArgs);
+            }
+            if (id == R.string.date_time_fmt) {
+                return String.format("%s, %s", formatArgs);
+            }
+            throw new IllegalArgumentException("unexpected resource ID: " + id);
+        }
+
+        @Override
+        public Configuration getConfiguration() {
+            Configuration config = new Configuration();
+            config.locale = Locale.getDefault();
+            return config;
+        }
+    }
+
+    private static long createTimeInMillis(int second, int minute, int hour, int monthDay,
+            int month, int year) {
+        return createTimeInMillis(second, minute, hour, monthDay, month, year,
+                Time.getCurrentTimezone());
+    }
+
+    private static long createTimeInMillis(int second, int minute, int hour, int monthDay,
+            int month, int year, String timezone) {
+        Time t = new Time(timezone);
+        t.set(second, minute, hour, monthDay, month, year);
+        t.normalize(false);
+        return t.toMillis(false);
+    }
+
+    private void setTimezone(String tz) {
+        timezoneUtils.setTimeZone(dbUtils.getContext(), tz);
+    }
+
     @Override
     public void setUp() {
         mIsDuplicateName = new HashMap<String, Boolean> ();
@@ -79,11 +146,22 @@ public class UtilsTests extends TestCase {
         mIsDuplicateNameExpected.put("Peter Parker", false);
         mIsDuplicateNameExpected.put("Silver Surfer", false);
         mIsDuplicateNameExpected.put("John Jameson", true);
+
+        // Set up fake db.
+        dbUtils = new DbTestUtils(new ResourcesForTest());
+        dbUtils.getContentResolver().addProvider("settings", dbUtils.getContentProvider());
+        dbUtils.getContentResolver().addProvider(CalendarCache.URI.getAuthority(),
+                dbUtils.getContentProvider());
+        setTimezone(DEFAULT_TIMEZONE);
     }
 
     @Override
     public void tearDown() {
         mDuplicateNameCursor.close();
+
+        // Must reset the timezone here, because even though the fake provider will be
+        // recreated/cleared, TimeZoneUtils statically holds on to a cached value.
+        setTimezone(Time.getCurrentTimezone());
     }
 
     @Smoke
@@ -232,5 +310,254 @@ public class UtilsTests extends TestCase {
         segments.add(new BusyBitsSegment(325, 350, true));
         assertEquals(segments, Utils.createBusyBitSegments(100, 350, 100, 1100, 1, events));
 */
+    }
+
+    /**
+     * Tests the findNanpPhoneNumbers function.
+     */
+    @SmallTest
+    public void testFindNanpPhoneNumber() {
+        final String[] NO_NUMBERS = new String[] {};
+
+        findPhoneNumber("", NO_NUMBERS);
+        findPhoneNumber("               ", NO_NUMBERS);
+        findPhoneNumber("123", NO_NUMBERS);
+        findPhoneNumber("how much wood", NO_NUMBERS);
+        findPhoneNumber("abc1-650-555-1212", NO_NUMBERS);
+        findPhoneNumber("abc 5551212 def", new String[] { "5551212" });
+        findPhoneNumber("1234567", NO_NUMBERS);
+        findPhoneNumber(" 2345678 ", new String[] { "2345678" });
+        findPhoneNumber("1234567890", NO_NUMBERS);
+        findPhoneNumber("12345678901", new String[] { "12345678901" });
+        findPhoneNumber("123456789012", NO_NUMBERS);
+        findPhoneNumber("+1-555-1212", NO_NUMBERS);
+        findPhoneNumber("+1 (650) 555-1212", new String[] { "+1 (650) 555-1212" });
+        findPhoneNumber("(650) 555-1212, (650) 555-1213",
+                new String[] { "(650) 555-1212", "(650) 555-1213" });
+        findPhoneNumber("Call 555-1212, 555-1213 and also 555-1214.",
+                new String[] { "555-1212", "555-1213", "555-1214." });
+        findPhoneNumber("555-1212,555-1213,555-1214", new String[] { "555-1212" });
+        findPhoneNumber("123 (650) 555-1212", new String[] { "(650) 555-1212" });
+        findPhoneNumber("1-650-555-1212", new String[] { "1-650-555-1212" });
+        findPhoneNumber("1650-555-1212", new String[] { "1650-555-1212" });
+        findPhoneNumber("1650 555-1212", new String[] { "1650 555-1212" });
+        findPhoneNumber("1650/555-1212", NO_NUMBERS);
+        findPhoneNumber("1650-555 1212", NO_NUMBERS);
+        findPhoneNumber("8-650-555-1212", NO_NUMBERS);
+        findPhoneNumber("8 650-555-1212", new String[] { "650-555-1212" });
+        findPhoneNumber("650.555.1212", new String[] { "650.555.1212" });
+        findPhoneNumber(" *#650.555.1212#*!", new String[] { "*#650.555.1212#*" });
+        findPhoneNumber("555.1212", new String[] { "555.1212" });
+        findPhoneNumber("6505551212 x123, 555-1212", new String[] { "6505551212", "555-1212" });
+        findPhoneNumber("6505551212x123", new String[] { "6505551212" });
+        findPhoneNumber("http://example.com/6505551212/", NO_NUMBERS);
+        findPhoneNumber("Mountain View, CA 94043 (650) 555-1212", new String[]{ "(650) 555-1212" });
+        findPhoneNumber("New York, NY 10001-0001", NO_NUMBERS);
+    }
+
+    /**
+     * Finds the numbers in a block of text, and checks to see if the positions of the numbers
+     * match the expected values.
+     *
+     * @param text The text to search.
+     * @param matches Pairs of start/end positions.
+     */
+    private static void findPhoneNumber(String text, String[] matches) {
+        int[] results = EventInfoFragment.findNanpPhoneNumbers(text);
+
+        assertEquals(results.length % 2, 0);
+
+        if (results.length / 2 != matches.length) {
+            fail("Text '" + text + "': expected " + matches.length
+                    + " matches, found " + results.length / 2);
+        }
+
+        for (int i = 0; i < results.length / 2; i++) {
+            CharSequence seq = text.subSequence(results[i*2], results[i*2 + 1]);
+            assertEquals(matches[i], seq);
+        }
+    }
+
+    @SmallTest
+    public void testGetDisplayedDatetime_differentYear() {
+        // 4/12/2000 5pm - 4/12/2000 6pm
+        long start = createTimeInMillis(0, 0, 17, 12, 3, 2000);
+        long end = createTimeInMillis(0, 0, 18, 12, 3, 2000);
+        String result = Utils.getDisplayedDatetime(start, end, NOW_TIME, DEFAULT_TIMEZONE,
+                false, dbUtils.getContext());
+        assertEquals("Wednesday, April 12, 2000, 5:00pm \u2013 6:00pm", result);
+
+        // 12/31/2012 5pm - 1/1/2013 6pm
+        start = createTimeInMillis(0, 0, 17, 31, 11, 2012);
+        end = createTimeInMillis(0, 0, 18, 1, 0, 2013);
+        result = Utils.getDisplayedDatetime(start, end, NOW_TIME, DEFAULT_TIMEZONE,
+                false, dbUtils.getContext());
+        assertEquals("Mon, Dec 31, 2012, 5:00pm – Tue, Jan 1, 2013, 6:00pm", result);
+    }
+
+    @SmallTest
+    public void testGetDisplayedDatetime_sameYear() {
+        // 4/12/2012 5pm - 4/12/2012 6pm
+        long start = createTimeInMillis(0, 0, 17, 12, 3, 2012);
+        long end = createTimeInMillis(0, 0, 18, 12, 3, 2012);
+        String result = Utils.getDisplayedDatetime(start, end, NOW_TIME, DEFAULT_TIMEZONE,
+                false, dbUtils.getContext());
+        assertEquals("Thursday, April 12, 5:00pm \u2013 6:00pm", result);
+    }
+
+    @SmallTest
+    public void testGetDisplayedDatetime_today() {
+        // 4/10/2012 5pm - 4/10/2012 6pm
+        long start = createTimeInMillis(0, 0, 17, NOW_DAY, NOW_MONTH, NOW_YEAR);
+        long end = createTimeInMillis(0, 0, 18, NOW_DAY, NOW_MONTH, NOW_YEAR);
+        String result = Utils.getDisplayedDatetime(start, end, NOW_TIME, DEFAULT_TIMEZONE,
+                false, dbUtils.getContext());
+        assertEquals("Today at 5:00pm \u2013 6:00pm", result);
+    }
+
+    @SmallTest
+    public void testGetDisplayedDatetime_todayMidnight() {
+        // 4/10/2012 5pm - 4/11/2012 12am
+        long start = createTimeInMillis(0, 0, 17, NOW_DAY, NOW_MONTH, NOW_YEAR);
+        long end = createTimeInMillis(0, 0, 0, NOW_DAY + 1, NOW_MONTH, NOW_YEAR);
+        String result = Utils.getDisplayedDatetime(start, end, NOW_TIME, DEFAULT_TIMEZONE,
+                false, dbUtils.getContext());
+        assertEquals("Today at 5:00pm \u2013 midnight", result);
+    }
+
+    @SmallTest
+    public void testGetDisplayedDatetime_tomorrow() {
+        // 4/11/2012 12:01am - 4/11/2012 11:59pm
+        long start = createTimeInMillis(0, 1, 0, NOW_DAY + 1, NOW_MONTH, NOW_YEAR);
+        long end = createTimeInMillis(0, 59, 23, NOW_DAY + 1, NOW_MONTH, NOW_YEAR);
+        String result = Utils.getDisplayedDatetime(start, end, NOW_TIME, DEFAULT_TIMEZONE,
+                false, dbUtils.getContext());
+        assertEquals("Tomorrow at 12:01am \u2013 11:59pm", result);
+    }
+
+    @SmallTest
+    public void testGetDisplayedDatetime_yesterday() {
+        // 4/9/2012 5pm - 4/9/2012 6pm
+        long start = createTimeInMillis(0, 0, 17, 9, 3, 2012);
+        long end = createTimeInMillis(0, 0, 18, 9, 3, 2012);
+        String result = Utils.getDisplayedDatetime(start, end, NOW_TIME, DEFAULT_TIMEZONE,
+                false, dbUtils.getContext());
+        assertEquals("Monday, April 9, 5:00pm \u2013 6:00pm", result);
+    }
+
+    @SmallTest
+    public void testGetDisplayedDatetime_multiDay() {
+        // 4/10/2012 12:01am - 4/11/2012 12:01am
+        long start = createTimeInMillis(0, 1, 0, NOW_DAY, NOW_MONTH, NOW_YEAR);
+        long end = createTimeInMillis(0, 1, 0, NOW_DAY + 1, NOW_MONTH, NOW_YEAR);
+        String result = Utils.getDisplayedDatetime(start, end, NOW_TIME, DEFAULT_TIMEZONE,
+                false, dbUtils.getContext());
+        assertEquals("Tue, Apr 10, 12:01am \u2013 Wed, Apr 11, 12:01am", result);
+    }
+
+    @SmallTest
+    public void testGetDisplayedDatetime_allDay() {
+        // 4/2/2012 12:00am - 4/3/2012 12:00am
+        long start = createTimeInMillis(0, 0, 0, 2, 3, NOW_YEAR, Time.TIMEZONE_UTC);
+        long end = createTimeInMillis(0, 0, 0, 3, 3, NOW_YEAR, Time.TIMEZONE_UTC);
+        String result = Utils.getDisplayedDatetime(start, end, NOW_TIME, DEFAULT_TIMEZONE,
+                true, dbUtils.getContext());
+        assertEquals("Monday, April 2", result);
+    }
+
+    @SmallTest
+    public void testGetDisplayedDatetime_allDayToday() {
+        // 4/10/2012 12:00am - 4/11/2012 12:00am
+        long start = createTimeInMillis(0, 0, 0, NOW_DAY, NOW_MONTH, NOW_YEAR, Time.TIMEZONE_UTC);
+        long end = createTimeInMillis(0, 0, 0, NOW_DAY + 1, NOW_MONTH, NOW_YEAR, Time.TIMEZONE_UTC);
+        String result = Utils.getDisplayedDatetime(start, end, NOW_TIME, DEFAULT_TIMEZONE,
+                true, dbUtils.getContext());
+        assertEquals("Today", result);
+    }
+
+    @SmallTest
+    public void testGetDisplayedDatetime_allDayMultiday() {
+        // 4/10/2012 12:00am - 4/13/2012 12:00am
+        long start = createTimeInMillis(0, 0, 0, NOW_DAY, NOW_MONTH, NOW_YEAR, Time.TIMEZONE_UTC);
+        long end = createTimeInMillis(0, 0, 0, NOW_DAY + 3, NOW_MONTH, NOW_YEAR, Time.TIMEZONE_UTC);
+        String result = Utils.getDisplayedDatetime(start, end, NOW_TIME, DEFAULT_TIMEZONE,
+                true, dbUtils.getContext());
+        assertEquals("Tuesday, April 10 \u2013 Thursday, April 12", result);
+    }
+
+    @SmallTest
+    public void testGetDisplayedDatetime_differentTimezone() {
+        String localTz = "America/New_York";
+        String eventTz = "America/Los_Angeles";
+        setTimezone(localTz);
+
+        // 4/12/2012 5pm - 4/12/2012 6pm (Pacific)
+        long start = createTimeInMillis(0, 0, 17, 12, 3, 2012, eventTz);
+        long end = createTimeInMillis(0, 0, 18, 12, 3, 2012, eventTz);
+        String result = Utils.getDisplayedDatetime(start, end, NOW_TIME, localTz, false,
+                dbUtils.getContext());
+        assertEquals("Thursday, April 12, 8:00pm \u2013 9:00pm", result);
+    }
+
+    @SmallTest
+    public void testGetDisplayedDatetime_allDayDiffTimezone() {
+        String localTz = "America/New_York";
+        setTimezone(localTz);
+
+        // 4/2/2012 12:00am - 4/3/2012 12:00am
+        long start = createTimeInMillis(0, 0, 0, 2, 3, NOW_YEAR, Time.TIMEZONE_UTC);
+        long end = createTimeInMillis(0, 0, 0, 3, 3, NOW_YEAR, Time.TIMEZONE_UTC);
+        String result = Utils.getDisplayedDatetime(start, end, NOW_TIME, localTz, true,
+                dbUtils.getContext());
+        assertEquals("Monday, April 2", result);
+    }
+
+    @SmallTest
+    public void testGetDisplayedDatetime_allDayTomorrowDiffTimezone() {
+        String localTz = "America/New_York";
+        setTimezone(localTz);
+
+        // 4/2/2012 12:00am - 4/3/2012 12:00am
+        long start = createTimeInMillis(0, 0, 0, NOW_DAY + 1, NOW_MONTH, NOW_YEAR,
+                Time.TIMEZONE_UTC);
+        long end = createTimeInMillis(0, 0, 0, NOW_DAY + 2, NOW_MONTH, NOW_YEAR,
+                Time.TIMEZONE_UTC);
+        String result = Utils.getDisplayedDatetime(start, end, NOW_TIME, localTz, true,
+                dbUtils.getContext());
+        assertEquals("Tomorrow", result);
+    }
+
+    // TODO: add tests for army time.
+
+    @SmallTest
+    public void testGetDisplayedTimezone_sameTimezone() {
+        String localTz = "America/New_York";
+        setTimezone(localTz);
+
+        // 4/12/2012 5pm
+        long start = createTimeInMillis(0, 0, 17, 12, 3, 2012, localTz);
+        assertNull(Utils.getDisplayedTimezone(start, localTz, localTz));
+    }
+
+    @SmallTest
+    public void testGetDisplayedTimezone_differentTimezone() {
+        String localTz = "America/New_York";
+        String eventTz = "America/Los_Angeles";
+        setTimezone(localTz);
+
+        // 1/12/2012 5pm (not daylight savings)
+        long start = createTimeInMillis(0, 0, 17, 12, 0, 2012, eventTz);
+        assertEquals("EST", Utils.getDisplayedTimezone(start, localTz, eventTz));
+    }
+
+    @SmallTest
+    public void testGetDisplayedTimezone_differentTimezoneDst() {
+        String localTz = "America/New_York";
+        String eventTz = "America/Los_Angeles";
+        setTimezone(localTz);
+
+        // 4/12/2012 5pm (daylight savings)
+        long start = createTimeInMillis(0, 0, 17, 12, 3, 2012, eventTz);
+        assertEquals("EDT", Utils.getDisplayedTimezone(start, localTz, eventTz));
     }
 }

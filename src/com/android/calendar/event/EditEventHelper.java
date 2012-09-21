@@ -16,18 +16,6 @@
 
 package com.android.calendar.event;
 
-import com.android.calendar.AsyncQueryService;
-import com.android.calendar.CalendarController;
-import com.android.calendar.CalendarEventModel;
-import com.android.calendar.CalendarEventModel.Attendee;
-import com.android.calendar.CalendarEventModel.ReminderEntry;
-import com.android.calendar.Utils;
-import com.android.calendarcommon.DateException;
-import com.android.calendarcommon.EventRecurrence;
-import com.android.calendarcommon.RecurrenceProcessor;
-import com.android.calendarcommon.RecurrenceSet;
-import com.android.common.Rfc822Validator;
-
 import android.content.ContentProviderOperation;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -46,7 +34,17 @@ import android.text.util.Rfc822Token;
 import android.text.util.Rfc822Tokenizer;
 import android.util.Log;
 import android.view.View;
-import android.widget.QuickContactBadge;
+
+import com.android.calendar.AsyncQueryService;
+import com.android.calendar.CalendarEventModel;
+import com.android.calendar.CalendarEventModel.Attendee;
+import com.android.calendar.CalendarEventModel.ReminderEntry;
+import com.android.calendar.Utils;
+import com.android.calendarcommon.DateException;
+import com.android.calendarcommon.EventRecurrence;
+import com.android.calendarcommon.RecurrenceProcessor;
+import com.android.calendarcommon.RecurrenceSet;
+import com.android.common.Rfc822Validator;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -82,6 +80,7 @@ public class EditEventHelper {
             Events.ORGANIZER, // 18
             Events.GUESTS_CAN_MODIFY, // 19
             Events.ORIGINAL_ID, // 20
+            Events.STATUS, // 21
     };
     protected static final int EVENT_INDEX_ID = 0;
     protected static final int EVENT_INDEX_TITLE = 1;
@@ -104,6 +103,7 @@ public class EditEventHelper {
     protected static final int EVENT_INDEX_ORGANIZER = 18;
     protected static final int EVENT_INDEX_GUESTS_CAN_MODIFY = 19;
     protected static final int EVENT_INDEX_ORIGINAL_ID = 20;
+    protected static final int EVENT_INDEX_EVENT_STATUS = 21;
 
     public static final String[] REMINDERS_PROJECTION = new String[] {
             Reminders._ID, // 0
@@ -134,7 +134,7 @@ public class EditEventHelper {
 
     protected static final int DAY_IN_SECONDS = 24 * 60 * 60;
 
-    private AsyncQueryService mService;
+    private final AsyncQueryService mService;
 
     // This allows us to flag the event if something is wrong with it, right now
     // if an uri is provided for an event that doesn't exist in the db.
@@ -142,10 +142,10 @@ public class EditEventHelper {
 
     public static final int ATTENDEE_ID_NONE = -1;
     public static final int[] ATTENDEE_VALUES = {
-            CalendarController.ATTENDEE_NO_RESPONSE,
-            Attendees.ATTENDEE_STATUS_ACCEPTED,
-            Attendees.ATTENDEE_STATUS_TENTATIVE,
-            Attendees.ATTENDEE_STATUS_DECLINED,
+        Attendees.ATTENDEE_STATUS_NONE,
+        Attendees.ATTENDEE_STATUS_ACCEPTED,
+        Attendees.ATTENDEE_STATUS_TENTATIVE,
+        Attendees.ATTENDEE_STATUS_DECLINED,
     };
 
     /**
@@ -198,14 +198,7 @@ public class EditEventHelper {
     static final int ATTENDEES_INDEX_EMAIL = 2;
     static final int ATTENDEES_INDEX_RELATIONSHIP = 3;
     static final int ATTENDEES_INDEX_STATUS = 4;
-    static final String ATTENDEES_WHERE_NOT_ORGANIZER = Attendees.EVENT_ID + "=? AND "
-            + Attendees.ATTENDEE_RELATIONSHIP + "<>" + Attendees.RELATIONSHIP_ORGANIZER;
-    static final String ATTENDEES_WHERE = Attendees.EVENT_ID + "=?";
-
-    public static class ContactViewHolder {
-        QuickContactBadge badge;
-        int updateCounts;
-    }
+    static final String ATTENDEES_WHERE = Attendees.EVENT_ID + "=? AND attendeeEmail IS NOT NULL";
 
     public static class AttendeeItem {
         public boolean mRemoved;
@@ -213,6 +206,7 @@ public class EditEventHelper {
         public Drawable mBadge;
         public int mUpdateCounts;
         public View mView;
+        public Uri mContactLookupUri;
 
         public AttendeeItem(Attendee attendee, Drawable badge) {
             mAttendee = attendee;
@@ -289,7 +283,7 @@ public class EditEventHelper {
         if (uri == null) {
             // Add hasAttendeeData for a new event
             values.put(Events.HAS_ATTENDEE_DATA, 1);
-            values.put(Events.STATUS, Events.STATUS_TENTATIVE);
+            values.put(Events.STATUS, Events.STATUS_CONFIRMED);
             eventIdIndex = ops.size();
             ContentProviderOperation.Builder b = ContentProviderOperation.newInsert(
                     Events.CONTENT_URI).withValues(values);
@@ -314,7 +308,7 @@ public class EditEventHelper {
             values.put(Events.ORIGINAL_INSTANCE_TIME, begin);
             boolean allDay = originalModel.mAllDay;
             values.put(Events.ORIGINAL_ALL_DAY, allDay ? 1 : 0);
-            values.put(Events.STATUS, Events.STATUS_TENTATIVE);
+            values.put(Events.STATUS, originalModel.mEventStatus);
 
             eventIdIndex = ops.size();
             ContentProviderOperation.Builder b = ContentProviderOperation.newInsert(
@@ -337,7 +331,7 @@ public class EditEventHelper {
                     updatePastEvents(ops, originalModel, model.mOriginalStart);
                 }
                 eventIdIndex = ops.size();
-                values.put(Events.STATUS, Events.STATUS_TENTATIVE);
+                values.put(Events.STATUS, originalModel.mEventStatus);
                 ops.add(ContentProviderOperation.newInsert(Events.CONTENT_URI).withValues(values)
                         .build());
             } else {
@@ -360,7 +354,7 @@ public class EditEventHelper {
 
                     // Create a new event with the user-modified fields
                     eventIdIndex = ops.size();
-                    values.put(Events.STATUS, Events.STATUS_TENTATIVE);
+                    values.put(Events.STATUS, originalModel.mEventStatus);
                     ops.add(ContentProviderOperation.newInsert(Events.CONTENT_URI).withValues(
                             values).build());
                 }
@@ -406,28 +400,28 @@ public class EditEventHelper {
         ContentProviderOperation.Builder b;
         boolean hasAttendeeData = model.mHasAttendeeData;
 
-        // New event/instance - Set Organizer's response as yes
-        if (hasAttendeeData && newEvent) {
-            values.clear();
+        if (hasAttendeeData && model.mOwnerAttendeeId == -1) {
+            // Organizer is not an attendee
 
             String ownerEmail = model.mOwnerAccount;
-            if (ownerEmail != null) {
+            if (model.mAttendeesList.size() != 0 && Utils.isValidEmail(ownerEmail)) {
+                // Add organizer as attendee since we got some attendees
+
+                values.clear();
                 values.put(Attendees.ATTENDEE_EMAIL, ownerEmail);
                 values.put(Attendees.ATTENDEE_RELATIONSHIP, Attendees.RELATIONSHIP_ORGANIZER);
-                values.put(Attendees.ATTENDEE_TYPE, Attendees.TYPE_NONE);
-                int initialStatus = Attendees.ATTENDEE_STATUS_ACCEPTED;
-                if (originalModel != null) {
-                    initialStatus = model.mSelfAttendeeStatus;
-                }
+                values.put(Attendees.ATTENDEE_TYPE, Attendees.TYPE_REQUIRED);
+                values.put(Attendees.ATTENDEE_STATUS, Attendees.ATTENDEE_STATUS_ACCEPTED);
 
-                // Don't accept for secondary calendars
-                if (ownerEmail.endsWith("calendar.google.com")) {
-                    initialStatus = Attendees.ATTENDEE_STATUS_NONE;
+                if (newEvent) {
+                    b = ContentProviderOperation.newInsert(Attendees.CONTENT_URI)
+                            .withValues(values);
+                    b.withValueBackReference(Attendees.EVENT_ID, eventIdIndex);
+                } else {
+                    values.put(Attendees.EVENT_ID, model.mId);
+                    b = ContentProviderOperation.newInsert(Attendees.CONTENT_URI)
+                            .withValues(values);
                 }
-                values.put(Attendees.ATTENDEE_STATUS, initialStatus);
-
-                b = ContentProviderOperation.newInsert(Attendees.CONTENT_URI).withValues(values);
-                b.withValueBackReference(Attendees.EVENT_ID, eventIdIndex);
                 ops.add(b.build());
             }
         } else if (hasAttendeeData &&
@@ -513,7 +507,7 @@ public class EditEventHelper {
                         values.put(Attendees.ATTENDEE_EMAIL, attendee.mEmail);
                         values.put(Attendees.ATTENDEE_RELATIONSHIP,
                                 Attendees.RELATIONSHIP_ATTENDEE);
-                        values.put(Attendees.ATTENDEE_TYPE, Attendees.TYPE_NONE);
+                        values.put(Attendees.ATTENDEE_TYPE, Attendees.TYPE_REQUIRED);
                         values.put(Attendees.ATTENDEE_STATUS, Attendees.ATTENDEE_STATUS_NONE);
 
                         if (newEvent) {
@@ -1047,6 +1041,7 @@ public class EditEventHelper {
             accessLevel--;
         }
         model.mAccessLevel = accessLevel;
+        model.mEventStatus = cursor.getInt(EVENT_INDEX_EVENT_STATUS);
 
         boolean hasRRule = !TextUtils.isEmpty(rRule);
 
@@ -1242,6 +1237,7 @@ public class EditEventHelper {
             accessLevel++;
         }
         values.put(Events.ACCESS_LEVEL, accessLevel);
+        values.put(Events.STATUS, model.mEventStatus);
 
         return values;
     }
