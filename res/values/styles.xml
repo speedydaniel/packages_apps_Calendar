@@ -79,11 +79,11 @@
         <item name="android:gravity">center_vertical</item>
         <item name="android:layout_gravity">top|left</item>
         <item name="android:textSize">18sp</item>
-        <item name="android:textColor">#FFAAAAAA</item>
+        <item name="android:textColor">#FFcfcfcf</item>
     </style>
 
     <style name="TextAppearance.EditEvent_Button" parent="TextAppearance.EditEvent_Label">
-        <item name="android:textColor">#FF777777</item>
+        <item name="android:textColor">#FFafafaf</item>
     </style>
 
     <style name="TextAppearance.EditEvent_LabelSmall" parent="TextAppearance.EditEvent_Small">
@@ -99,14 +99,14 @@
     <style name="TextAppearance.EditEvent_Small">
         <item name="android:textAppearance">?android:attr/textAppearanceSmall</item>
         <item name="android:textSize">14sp</item>
-        <item name="android:textColor">#FFAAAAAA</item>
+        <item name="android:textColor">#FFFFFFFF</item>
         <item name="android:textAllCaps">true</item>
     </style>
 
     <style name="TextAppearance.EditEvent">
         <item name="android:textAppearance">?android:attr/textAppearanceMedium</item>
         <item name="android:textSize">18sp</item>
-        <item name="android:textColor">#FF333333</item>
+        <item name="android:textColor">#FFFFFFFF</item>
     </style>
 
     <style name="TextAppearance.EditEvent_Value" parent="TextAppearance.EditEvent">
@@ -127,9 +127,9 @@
         <item name="android:paddingRight">16dip</item>
     </style>
 
-    <style name="TextAppearance.EditEvent_Spinner" parent="android:style/Widget.Holo.Light.Spinner">
+    <style name="TextAppearance.EditEvent_Spinner" parent="android:style/Widget.Holo.Spinner">
         <item name="android:textSize">18sp</item>
-        <item name="android:textColor">#FF333333</item>
+        <item name="android:textColor">#FFFFFFFF</item>
         <item name="android:layout_marginRight">12dp</item>
         <item name="android:layout_marginLeft">12dp</item>
     </style>
@@ -142,7 +142,7 @@
     <style name="TextAppearance.EditEvent_homeTime">
         <item name="android:textAppearance">?android:attr/textAppearanceSmall</item>
         <item name="android:textSize">12sp</item>
-        <item name="android:textColor">@android:color/darker_gray</item>
+        <item name="android:textColor">#ffcfcfcf</item>
         <item name="android:paddingRight">2dip</item>
         <item name="android:singleLine">true</item>
     </style>
@@ -153,7 +153,7 @@
         <item name="android:paddingLeft">16dip</item>
     </style>
 
-    <style name="EditEvent_Layout" parent="android:Theme.Holo.Light">
+    <style name="EditEvent_Layout" parent="android:Theme.Holo">
     </style>
 
     <style name="TextAppearance.Date_Range_Title">
@@ -161,11 +161,11 @@
         <item name="android:textColor">@color/calendar_date_range_color</item>
     </style>
 
-    <style name="CalendarTheme" parent="android:Theme.Holo.Light">
+    <style name="CalendarTheme" parent="android:Theme.Holo">
         <item name="android:windowContentOverlay">@null</item>
     </style>
 
-    <style name="CalendarTheme.WithActionBar" parent="android:Theme.Holo.Light">
+    <style name="CalendarTheme.WithActionBar" parent="android:Theme.Holo">
         <item name="android:windowNoTitle">false</item>
         <item name="android:windowActionBar">true</item>
         <item name="android:windowBackground">@color/background_color</item>
@@ -174,7 +174,7 @@
         <item name="android:startYear">1970</item>
     </style>
 
-    <style name="CalendarActionBarStyle" parent="android:style/Widget.Holo.Light.ActionBar.Solid">
+    <style name="CalendarActionBarStyle" parent="android:style/Widget.Holo.ActionBar.Solid">
         <item name="android:displayOptions">showCustom</item>
     </style>
 
@@ -200,7 +200,7 @@
         <item name="android:visibility">gone</item>
     </style>
 
-    <style name="EditEventCustomActionButton" parent="android:style/Widget.Holo.Light.ActionButton">
+    <style name="EditEventCustomActionButton" parent="android:style/Widget.Holo.ActionButton">
         <item name="android:layout_height">match_parent</item>
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_weight">1</item>
