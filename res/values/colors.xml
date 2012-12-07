@@ -23,7 +23,7 @@
 
     <color name="selection">@android:color/holo_blue_light</color>
 
-    <color name="today_highlight_color">@android:color/holo_blue_light</color>
+    <color name="today_highlight_color">#0033b5e5</color>
 
     <!-- The app wide background color -->
 

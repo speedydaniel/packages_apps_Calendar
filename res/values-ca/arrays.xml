@@ -87,7 +87,6 @@
     <item msgid="6115801678953677414">"Manaus"</item>
     <item msgid="2593929186990540989">"Santiago"</item>
     <item msgid="6585031589100947696">"Terranova"</item>
-    <item>"Recife"</item>
     <item msgid="5295092779694537214">"Brasília"</item>
     <item msgid="6402931335497071732">"Buenos Aires"</item>
     <item msgid="4432313195052285856">"Grenlàndia"</item>
@@ -159,8 +158,8 @@
   </string-array>
   <string-array name="visibility">
     <item msgid="3035788428581513163">"Predeterminada"</item>
-    <item msgid="5200216103966973369">"Privada"</item>
-    <item msgid="9182342638433672664">"Pública"</item>
+    <item msgid="5200216103966973369">"Privat"</item>
+    <item msgid="9182342638433672664">"Públic"</item>
   </string-array>
   <string-array name="ordinal_labels">
     <item msgid="2693927956303125332">"primer"</item>
